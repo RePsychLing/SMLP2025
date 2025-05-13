@@ -7,7 +7,7 @@ julia:
   exeflags: ["--project", "--threads=auto"]
 ---
 
-This site provides materials for the **Advanced frequentist methods** stream of the [Summer School on Statistical Methods](https://vasishth.github.io/smlp2025/) to be held at the University of Potsdam, 9-13 September, 2025.
+This site provides materials for the **Advanced frequentist methods** stream of the [Summer School on Statistical Methods](https://vasishth.github.io/smlp2025/) to be held at the University of Potsdam, 25--29 August 2025.
 
 # Installation of tools prior to the course
 
