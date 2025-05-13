@@ -129,3 +129,5 @@ For MATLAB users, there is also [MATLAB.jl](https://github.com/JuliaInterop/MATL
 [Cxx.jl](https://juliainterop.github.io/Cxx.jl/stable/) provides interoperability with C++. It also provides a C++ REPL mode, making it possible to treating C++ much more like a dynamic language than the traditional compiler toolchain would allow.
 
 Support for calling C and Fortran is [part of the Julia standard library](https://docs.julialang.org/en/v1/manual/calling-c-and-fortran-code/).
+
+*This page was rendered from git revision {{< git-rev short=true >}} using Quarto {{< version >}}.*

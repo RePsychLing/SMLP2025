@@ -122,3 +122,5 @@ shrinkageplot(m1)
 #| code-fold: true
 caterpillar(m1; orderby=nothing, vline_at_zero=true)
 ```
+
+*This page was rendered from git revision {{< git-rev short=true >}} using Quarto {{< version >}}.*

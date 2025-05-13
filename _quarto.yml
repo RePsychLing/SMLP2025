@@ -1,3 +1,4 @@
+quarto-required: ">=1.7.29"
 date: last-modified
 date-format: iso
 engine: julia
@@ -7,10 +8,13 @@ execute:
   cache: true
   freeze: auto
 number-sections: true
+github:
+  owner: RePsychLing
+  repo: SMLP2025
 
 project:
   type: website
-  title: "SMLP2024"
+  title: "SMLP2025"
   execute-dir: project
   output-dir: _build/
   render:
@@ -59,9 +63,9 @@ format:
     fig-height: 6
 
 website:
-  title: "SMLP2024: Advanced Frequentist Track"
-  site-url: https://RePsychLing.github.io/SMLP2024
-  repo-url: https://github.com/RePsychLing/SMLP2024
+  title: "SMLP2025: Advanced Frequentist Track"
+  site-url: https://RePsychLing.github.io/SMLP2025
+  repo-url: https://github.com/RePsychLing/SMLP2025
   repo-actions: [edit, issue]
   # reader-mode: true
   navbar:
@@ -72,7 +76,7 @@ website:
     #   - about.qmd
     right:
       - icon: github
-        href: https://github.com/RePsychLing/SMLP2024
+        href: https://github.com/RePsychLing/SMLP2025
   page-navigation: true
   back-to-top-navigation: true
   sidebar:

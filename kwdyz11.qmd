@@ -42,7 +42,7 @@ using Distributions
 using MixedModels
 using MixedModelsMakie
 using Random
-using SMLP2024: dataset
+using SMLP2025: dataset
 using StatsBase
 ```
 
@@ -390,3 +390,5 @@ Therefore, this CP will be replicated with a larger sample in script `kkl15.jl` 
 
 ::: {#refs}
 :::
+
+*This page was rendered from git revision {{< git-rev short=true >}} using Quarto {{< version >}}.*

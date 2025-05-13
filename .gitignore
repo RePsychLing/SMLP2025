@@ -47,3 +47,5 @@ _build/
 site_libs/
 *.html
 *.ipynb
+.cache/
+

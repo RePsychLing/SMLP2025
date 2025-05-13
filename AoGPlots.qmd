@@ -7,7 +7,7 @@ julia:
 
 This notebook shows creating a multi-panel plot similar to Figure 2 of @Fuehner2021.
 
-The data are available from the SMLP2024 example datasets.
+The data are available from the SMLP2025 example datasets.
 
 ```{julia}
 #| code-fold: true
@@ -17,7 +17,7 @@ using CairoMakie   # for displaying static plots
 using DataFrames
 using Statistics
 using StatsBase
-using SMLP2024: dataset
+using SMLP2025: dataset
 ```
 
 ```{julia}
@@ -94,3 +94,5 @@ end
 
 ::: {#refs}
 :::
+
+*This page was rendered from git revision {{< git-rev short=true >}} using Quarto {{< version >}}.*

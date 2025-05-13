@@ -13,7 +13,7 @@ The columns can be of different types including numeric values, character string
 
 An Arrow file can be read or written from R, Python, Julia and many other languages.  Somewhat confusingly in R and Python the name `feather`, which refers to an earlier version of the storage format, is used in some function names like `read_feather`.
 
-Internally, the SMLP2024 package uses Arrow to store all of its datasets.
+Internally, the SMLP2025 package uses Arrow to store all of its datasets.
 
 # The Emotikon data
 
@@ -208,3 +208,5 @@ read_ipc_file("./data/fggk21.arrow")
 
 ::: {#refs}
 :::
+
+*This page was rendered from git revision {{< git-rev short=true >}} using Quarto {{< version >}}.*

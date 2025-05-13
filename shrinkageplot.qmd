@@ -229,3 +229,5 @@ end
 #| fig-cap: Residuals versus fitted values for model m4
 scatter(fitted(m4), residuals(m4))
 ```
+
+*This page was rendered from git revision {{< git-rev short=true >}} using Quarto {{< version >}}.*
