@@ -49,3 +49,5 @@ let
   fdensity
 end
 ```
+
+*This page was rendered from git revision {{< git-rev short=true >}} using Quarto {{< version >}}.*

@@ -16,7 +16,7 @@ using DataFrameMacros
 using DataFrames
 using MixedModels
 using MixedModelsMakie
-using SMLP2024: dataset
+using SMLP2025: dataset
 
 const progress=false
 ```
@@ -375,3 +375,5 @@ preds = effects(design, gm3; invlink=AutoInvLink())
   - From the data plot we can see a quadratic trend in the probability by age.
   - The patterns for women with children are similar and we do not need to distinguish between 1, 2, and 3+ children.
   - We do distinguish between those women who do not have children and those with children.  This shows up in a significant `age & children` interaction term.
+
+*This page was rendered from git revision {{< git-rev short=true >}} using Quarto {{< version >}}.*

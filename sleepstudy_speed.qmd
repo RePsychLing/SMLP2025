@@ -39,7 +39,7 @@ using DataFrameMacros
 using DataFrames
 using MixedModels
 using MixedModelsMakie   # plots specific to mixed-effects models using Makie
-using SMLP2024: dataset
+using SMLP2025: dataset
 ```
 
 # Preprocessing
@@ -183,3 +183,5 @@ shrinkageplot!(Figure(; resolution=(500, 500)), m2)
 
 ::: {#refs}
 :::
+
+*This page was rendered from git revision {{< git-rev short=true >}} using Quarto {{< version >}}.*

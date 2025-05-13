@@ -41,7 +41,7 @@ using DataFrames
 using MixedModels
 using MixedModelsMakie
 using Random
-using SMLP2024: dataset
+using SMLP2025: dataset
 using StatsBase
 ```
 
@@ -514,3 +514,5 @@ The three remaining CPs are not well defined for reaction times.
 
 ::: {#refs}
 :::
+
+*This page was rendered from git revision {{< git-rev short=true >}} using Quarto {{< version >}}.*

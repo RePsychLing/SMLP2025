@@ -34,7 +34,7 @@ using MixedModelsMakie: simplelinreg
 using Random
 using Statistics
 using StatsBase
-using SMLP2024: dataset
+using SMLP2025: dataset
 
 const progress=false
 ```
@@ -950,3 +950,5 @@ shrinkageplot!(Figure(; resolution=(800, 800)), m2, :Cohort)
 
 ::: {#refs}
 :::
+
+*This page was rendered from git revision {{< git-rev short=true >}} using Quarto {{< version >}}.*

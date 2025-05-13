@@ -47,7 +47,7 @@ using DataFrames
 using Effects
 using MixedModels
 using StandardizedPredictors
-using SMLP2024: dataset
+using SMLP2025: dataset
 ```
 
 ```{julia}
@@ -208,3 +208,5 @@ f
 
 :::{refs}
 :::
+
+*This page was rendered from git revision {{< git-rev short=true >}} using Quarto {{< version >}}.*

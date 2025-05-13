@@ -34,7 +34,7 @@ using CairoMakie
 using MixedModels
 using MixedModelsMakie
 using Random
-using SMLP2024: dataset
+using SMLP2025: dataset
 
 const progress=false
 ```
@@ -221,3 +221,5 @@ let pars=["σ", "σ1", "σ2", "σ3"]
   )
 end
 ```
+
+*This page was rendered from git revision {{< git-rev short=true >}} using Quarto {{< version >}}.*

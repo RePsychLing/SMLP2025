@@ -7,7 +7,7 @@ julia:
   exeflags: ["--project", "--threads=auto"]
 ---
 
-This site provides materials for the **Advanced frequentist methods** stream of the [Summer School on Statistical Methods](https://vasishth.github.io/smlp2024/) to be held at the University of Potsdam, 9-13 September, 2024.
+This site provides materials for the **Advanced frequentist methods** stream of the [Summer School on Statistical Methods](https://vasishth.github.io/smlp2025/) to be held at the University of Potsdam, 9-13 September, 2025.
 
 # Installation of tools prior to the course
 
@@ -21,11 +21,11 @@ If not, [Happy Git with R](https://happygitwithr.com/) is a good place to learn 
 
 The example data stored in the `data` folder is stored with [git-lfs](https://git-lfs.com/). You will need to install git-lfs to access this data, but then everything will "just" work.
 
-This website is built using [quarto](https://quarto.org), described below, from the [repository](https://github.com/RePsychLing/SMLP2024).
+This website is built using [quarto](https://quarto.org), described below, from the [repository](https://github.com/RePsychLing/SMLP2025).
 Clone this repository with, e.g.
 
 ```sh
-git clone https://github.com/RePsychLing/SMLP2024
+git clone https://github.com/RePsychLing/SMLP2025
 ```
 
 ## Julia Programming Language
@@ -50,3 +50,5 @@ Whatever IDE you use, make sure to install the necessary extensions for Quarto a
 We assume everybody will succeed with the installations. If not, please get in touch!
 
 You may also want to give it a try to get these tools to play nicely with each other -- but don't spend too much time on this.
+
+*This page was rendered from git revision {{< git-rev short=true >}} using Quarto {{< version >}}.*

@@ -15,7 +15,7 @@ using CairoMakie
 using DataFrames
 using MixedModels
 using Random
-using SMLP2024: dataset
+using SMLP2025: dataset
 
 const progress=false
 ```
@@ -150,3 +150,5 @@ draw(
 
 ::: {#refs}
 :::
+
+*This page was rendered from git revision {{< git-rev short=true >}} using Quarto {{< version >}}.*

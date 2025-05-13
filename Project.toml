@@ -1,7 +1,7 @@
-name = "SMLP2024"
-uuid = "3c8ca5f6-7797-4ff8-8247-191023d8f95a"
+name = "SMLP2025"
+uuid = "45591de5-8574-4bf0-b290-85cdb9870d94"
 authors = ["Phillip Alday <me@phillipalday.com>", "Douglas Bates <dmbates@gmail.com>", "Reinhold Kliegl <reinhold.kliegl@gmail.com>"]
-version = "0.1.0"
+version = "1.0.0"
 
 [deps]
 AlgebraOfGraphics = "cbdf2221-f076-402e-a563-3d30da359d67"

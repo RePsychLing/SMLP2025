@@ -20,7 +20,7 @@ using MixedModels
 using MixedModelsMakie
 using MixedModelsSim
 using StatsBase
-using SMLP2024: dataset
+using SMLP2025: dataset
 using Random
 
 const progress=false
@@ -290,3 +290,5 @@ dat[!, :n] = rand(RNG, Poisson(), nrow(dat)) .+ 3
 ```{julia}
 dat[!, :dv] = rand.(RNG, Binomial.(dat[!, :n])) ./ dat[!, :n]
 ```
+
+*This page was rendered from git revision {{< git-rev short=true >}} using Quarto {{< version >}}.*

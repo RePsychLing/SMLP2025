@@ -41,7 +41,7 @@ end
 Return a vector of the names of datasets available for use in [`dataset`](@ref).    
 """
 function datasets()
-    return sort!(vcat(SMLP2024.DATASETS.dsname, MixedModelsDatasets.datasets()))
+    return sort!(vcat(SMLP2025.DATASETS.dsname, MixedModelsDatasets.datasets()))
 end
 
 """

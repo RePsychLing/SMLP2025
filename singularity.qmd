@@ -152,3 +152,5 @@ and thus
 $$
 \theta_2=\frac{\rho}{\sqrt{1-\rho^2}}\theta_3
 $$
+
+*This page was rendered from git revision {{< git-rev short=true >}} using Quarto {{< version >}}.*
