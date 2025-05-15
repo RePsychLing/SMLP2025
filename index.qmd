@@ -1,7 +1,7 @@
 ---
-title: "Eighth Summer School on Statistical Methods for Linguistics and Psychology"
+title: "Ninth Summer School on Statistical Methods for Linguistics and Psychology"
 subtitle: "Advanced methods in frequentist statistics with Julia"
-author: "Phillip Alday, Reinhold Kliegl and Douglas Bates"
+author: "Phillip Alday and Reinhold Kliegl"
 engine: julia
 julia:
   exeflags: ["--project", "--threads=auto"]
