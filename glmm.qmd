@@ -267,7 +267,7 @@ This is because the Bernoulli distribution doesn't have a scale parameter.
 ### Convert `livch` to a binary factor
 
 ```{julia}
-@transform!(contra, :children = :livch ≠ "0")
+@transform!(contra, :children = ifelse(:livch ≠ "0", "Y", "N"))
 # add the associated contrast specifier
 contrasts[:children] = EffectsCoding()
 ```
@@ -364,7 +364,7 @@ For a "typical" district (random effect near zero) the predictions on the linear
 ```{julia}
 using Effects
 design = Dict(
-  :children => [true, false], :urban => ["Y", "N"], :age => [0.0]
+  :children => ["Y", "N"], :urban => ["Y", "N"], :age => [0.0]
 )
 preds = effects(design, gm3; invlink=AutoInvLink())
 ```
