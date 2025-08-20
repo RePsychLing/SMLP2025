@@ -2,12 +2,12 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.7.29">
+<meta name="generator" content="quarto-1.7.32">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Phillip Alday, Douglas Bates, and Reinhold Kliegl">
-<meta name="dcterms.date" content="2025-08-15">
+<meta name="dcterms.date" content="2025-08-19">
 
 <title>Generalized linear mixed models – SMLP2025: Advanced Frequentist Track</title>
 <style>
@@ -75,14 +75,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <script src="site_libs/quarto-html/tippy.umd.min.js"></script>
 <script src="site_libs/quarto-html/anchor.min.js"></script>
 <link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-0815c480559380816a4d1ea211a47e91.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-dark-748b535e376f14d4692bf2b2e5fd6380.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-0815c480559380816a4d1ea211a47e91.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-37eea08aefeeee20ff55810ff984fec1.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-dark-2fef5ea3f8957b3e4ecc936fc74692ca.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-37eea08aefeeee20ff55810ff984fec1.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-34a1b43e5a73f18c04ce3cf81d6c00bf.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
-<link href="site_libs/bootstrap/bootstrap-dark-6f904aa39067de300dcd6e5702a4feea.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
-<link href="site_libs/bootstrap/bootstrap-34a1b43e5a73f18c04ce3cf81d6c00bf.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-9d151edcf26d40b03ffbbf8aa8379941.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-dark-d7dc92caa68c061f3ea19593ad1253c4.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="site_libs/bootstrap/bootstrap-9d151edcf26d40b03ffbbf8aa8379941.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
 <script src="site_libs/quarto-contrib/jquery-3.6.3/jquery-3.6.3.min.js"></script>
 <script src="site_libs/quarto-contrib/code-fullscreen-1.0.0/code-fullscreen.js" defer="true"></script>
 <link href="site_libs/quarto-contrib/code-fullscreen-1.0.0/code-fullscreen.css" rel="stylesheet">
@@ -303,6 +303,7 @@ window.Quarto = {
       toggleColorMode(toAlternate);
       setStyleSentinel(toAlternate);
       toggleGiscusIfUsed(toAlternate, darkModeDefault);
+      window.dispatchEvent(new Event('resize'));
     };
     // Switch to dark mode if need be
     if (hasAlternateSentinel()) {
@@ -579,7 +580,7 @@ window.Quarto = {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">2025-08-15</p>
+      <p class="date">2025-08-19</p>
     </div>
   </div>
   
@@ -808,7 +809,7 @@ window.Quarto = {
 
 Variance components:
             Column    Variance Std.Dev.   Corr.
-subj     (Intercept)  565.51065 23.78047
+subj     (Intercept)  565.51066 23.78047
          days          32.68212  5.71683 +0.08
 Residual              654.94145 25.59182
  Number of obs: 180; levels of grouping factors: 18
@@ -853,8 +854,8 @@ days          10.4673     1.50224   6.97    &lt;1e-11
 <div class="sourceCode cell-code" id="cb7"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>m1.β</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
 <pre><code>2-element Vector{Float64}:
- 251.4051048484828
-  10.467285959596277</code></pre>
+ 251.4051048484854
+  10.467285959596103</code></pre>
 </div>
 </div>
 <div id="12" class="cell" data-execution_count="1">
@@ -889,7 +890,7 @@ days          10.4673     1.50224   6.97    &lt;1e-11
 <div class="sourceCode cell-code" id="cb11"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>m1.b</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
 <pre><code>1-element Vector{Matrix{Float64}}:
- [2.8158177107740383 -40.04844073875996 … 0.7232622004879082 12.118907715900336; 9.075511973765797 -8.64407958138207 … -0.9710526648887464 1.3106980698541022]</code></pre>
+ [2.8158185402505636 -40.04844126182569 … 0.7232621044139194 12.118907752009402; 9.075511824812615 -8.644079513524412 … -0.9710526469217349 1.31069807154143]</code></pre>
 </div>
 </div>
 <div id="16" class="cell" data-execution_count="1">
@@ -933,52 +934,52 @@ days          10.4673     1.50224   6.97    &lt;1e-11
 <div class="sourceCode cell-code" id="cb17"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>m1.X <span class="op">*</span> m1.β <span class="op">+</span> <span class="fu">only</span>(m1.reterms) <span class="op">*</span> <span class="fu">vec</span>(<span class="fu">only</span>(m1.b))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
 <pre><code>180-element Vector{Float64}:
- 254.22092255925685
- 273.7637204926189
- 293.306518425981
- 312.84931635934305
- 332.3921142927051
- 351.9349122260672
- 371.4777101594293
- 391.0205080927913
- 410.56330602615344
- 430.1061039595155
+ 254.22092338873597
+ 273.7637211731447
+ 293.3065189575534
+ 312.84931674196207
+ 332.3921145263708
+ 351.9349123107795
+ 371.4777100951883
+ 391.020507879597
+ 410.5633056640057
+ 430.10610344841444
    ⋮
- 275.30199659383356
- 287.0799806232839
- 298.85796465273427
- 310.6359486821847
- 322.413932711635
- 334.19191674108544
- 345.9699007705358
- 357.7478847999862
- 369.52586882943655</code></pre>
+ 275.30199663163233
+ 287.07998066276986
+ 298.8579646939074
+ 310.6359487250449
+ 322.4139327561824
+ 334.19191678732
+ 345.9699008184575
+ 357.7478848495951
+ 369.5258688807326</code></pre>
 </div>
 </div>
 <div id="22" class="cell" data-execution_count="1">
 <div class="sourceCode cell-code" id="cb19"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">fitted</span>(m1)   <span class="co"># just to check that these are indeed the same as calculated above</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
 <pre><code>180-element Vector{Float64}:
- 254.22092255925685
- 273.7637204926189
- 293.306518425981
- 312.84931635934305
- 332.3921142927051
- 351.9349122260672
- 371.4777101594293
- 391.0205080927913
- 410.56330602615344
- 430.1061039595155
+ 254.22092338873597
+ 273.7637211731447
+ 293.3065189575534
+ 312.8493167419621
+ 332.39211452637085
+ 351.9349123107795
+ 371.4777100951883
+ 391.020507879597
+ 410.5633056640057
+ 430.10610344841444
    ⋮
- 275.3019965938335
- 287.0799806232839
- 298.85796465273427
- 310.6359486821846
- 322.413932711635
- 334.19191674108544
- 345.96990077053573
- 357.7478847999862
- 369.52586882943655</code></pre>
+ 275.30199663163233
+ 287.07998066276986
+ 298.8579646939074
+ 310.6359487250449
+ 322.4139327561825
+ 334.19191678732005
+ 345.9699008184576
+ 357.7478848495951
+ 369.5258688807326</code></pre>
 </div>
 </div>
 <p>In symbols we would write the <em>linear predictor expression</em> as <span class="math display">\[
@@ -995,9 +996,9 @@ days          10.4673     1.50224   6.97    &lt;1e-11
 <div class="sourceCode cell-code" id="cb21"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>m1.θ</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
 <pre><code>3-element Vector{Float64}:
- 0.9292213025841999
- 0.018168360086059557
- 0.22264488361408383</code></pre>
+ 0.9292213103503763
+ 0.018168372482181838
+ 0.22264487798243643</code></pre>
 </div>
 </div>
 <div id="26" class="cell" data-execution_count="1">
@@ -1032,7 +1033,7 @@ days          10.4673     1.50224   6.97    &lt;1e-11
 <tr class="even">
 <td style="text-align: left;">subj</td>
 <td style="text-align: left;">(Intercept)</td>
-<td style="text-align: right;">565.51065</td>
+<td style="text-align: right;">565.51066</td>
 <td style="text-align: right;">23.78047</td>
 <td style="text-align: right;"></td>
 </tr>
@@ -1573,7 +1574,7 @@ Figure&nbsp;1: Smoothed relative frequency of contraception use versus centered 
 <td style="text-align: right;">0.0035</td>
 <td style="text-align: right;">0.0092</td>
 <td style="text-align: right;">0.38</td>
-<td style="text-align: right;">0.7022</td>
+<td style="text-align: right;">0.7023</td>
 <td style="text-align: right;"></td>
 </tr>
 <tr class="even">
@@ -1594,7 +1595,7 @@ Figure&nbsp;1: Smoothed relative frequency of contraception use versus centered 
 </tr>
 <tr class="even">
 <td style="text-align: left;">livch: 1</td>
-<td style="text-align: right;">0.8151</td>
+<td style="text-align: right;">0.8152</td>
 <td style="text-align: right;">0.1622</td>
 <td style="text-align: right;">5.02</td>
 <td style="text-align: right;">&lt;1e-06</td>
@@ -1637,7 +1638,7 @@ Figure&nbsp;1: Smoothed relative frequency of contraception use versus centered 
 <tr class="even">
 <td style="text-align: left;">dist</td>
 <td style="text-align: left;">(Intercept)</td>
-<td style="text-align: right;">0.229095</td>
+<td style="text-align: right;">0.229094</td>
 <td style="text-align: right;">0.478638</td>
 </tr>
 </tbody>
@@ -1693,7 +1694,7 @@ Figure&nbsp;1: Smoothed relative frequency of contraception use versus centered 
 <td style="text-align: right;">-0.0131</td>
 <td style="text-align: right;">0.0110</td>
 <td style="text-align: right;">-1.19</td>
-<td style="text-align: right;">0.2351</td>
+<td style="text-align: right;">0.2352</td>
 <td style="text-align: right;"></td>
 </tr>
 <tr class="even">
@@ -1826,7 +1827,7 @@ Figure&nbsp;1: Smoothed relative frequency of contraception use versus centered 
 </tr>
 <tr class="even">
 <td style="text-align: left;">(Intercept)</td>
-<td style="text-align: right;">-0.3415</td>
+<td style="text-align: right;">-0.3414</td>
 <td style="text-align: right;">0.1269</td>
 <td style="text-align: right;">-2.69</td>
 <td style="text-align: right;">0.0071</td>
@@ -1842,7 +1843,7 @@ Figure&nbsp;1: Smoothed relative frequency of contraception use versus centered 
 </tr>
 <tr class="even">
 <td style="text-align: left;">children: Y</td>
-<td style="text-align: right;">0.6064</td>
+<td style="text-align: right;">0.6065</td>
 <td style="text-align: right;">0.1045</td>
 <td style="text-align: right;">5.80</td>
 <td style="text-align: right;">&lt;1e-08</td>
@@ -1974,7 +1975,7 @@ Figure&nbsp;1: Smoothed relative frequency of contraception use versus centered 
 <td style="text-align: right;">-0.0131</td>
 <td style="text-align: right;">0.0110</td>
 <td style="text-align: right;">-1.19</td>
-<td style="text-align: right;">0.2351</td>
+<td style="text-align: right;">0.2352</td>
 <td style="text-align: right;"></td>
 </tr>
 <tr class="even">
@@ -2028,7 +2029,7 @@ Figure&nbsp;1: Smoothed relative frequency of contraception use versus centered 
 </tr>
 <tr class="even">
 <td style="text-align: left;">(Intercept)</td>
-<td style="text-align: right;">-0.3415</td>
+<td style="text-align: right;">-0.3414</td>
 <td style="text-align: right;">0.1269</td>
 <td style="text-align: right;">-2.69</td>
 <td style="text-align: right;">0.0071</td>
@@ -2044,7 +2045,7 @@ Figure&nbsp;1: Smoothed relative frequency of contraception use versus centered 
 </tr>
 <tr class="even">
 <td style="text-align: left;">children: Y</td>
-<td style="text-align: right;">0.6064</td>
+<td style="text-align: right;">0.6065</td>
 <td style="text-align: right;">0.1045</td>
 <td style="text-align: right;">5.80</td>
 <td style="text-align: right;">&lt;1e-08</td>
@@ -2120,40 +2121,40 @@ Figure&nbsp;1: Smoothed relative frequency of contraception use versus centered 
 <td style="text-align: left;">Y</td>
 <td style="text-align: right;">0.0</td>
 <td style="text-align: left;">Y</td>
-<td style="text-align: right;">0.65894</td>
-<td style="text-align: right;">0.0338299</td>
-<td style="text-align: right;">0.62511</td>
-<td style="text-align: right;">0.69277</td>
+<td style="text-align: right;">0.658952</td>
+<td style="text-align: right;">0.0338295</td>
+<td style="text-align: right;">0.625123</td>
+<td style="text-align: right;">0.692782</td>
 </tr>
 <tr class="even">
 <td class="rowNumber" style="text-align: right; font-weight: bold;">2</td>
 <td style="text-align: left;">N</td>
 <td style="text-align: right;">0.0</td>
 <td style="text-align: left;">Y</td>
-<td style="text-align: right;">0.364863</td>
-<td style="text-align: right;">0.0534101</td>
-<td style="text-align: right;">0.311452</td>
-<td style="text-align: right;">0.418273</td>
+<td style="text-align: right;">0.364871</td>
+<td style="text-align: right;">0.0534111</td>
+<td style="text-align: right;">0.31146</td>
+<td style="text-align: right;">0.418282</td>
 </tr>
 <tr class="odd">
 <td class="rowNumber" style="text-align: right; font-weight: bold;">3</td>
 <td style="text-align: left;">Y</td>
 <td style="text-align: right;">0.0</td>
 <td style="text-align: left;">N</td>
-<td style="text-align: right;">0.467889</td>
-<td style="text-align: right;">0.0281378</td>
-<td style="text-align: right;">0.439751</td>
-<td style="text-align: right;">0.496026</td>
+<td style="text-align: right;">0.467899</td>
+<td style="text-align: right;">0.0281379</td>
+<td style="text-align: right;">0.439761</td>
+<td style="text-align: right;">0.496037</td>
 </tr>
 <tr class="even">
 <td class="rowNumber" style="text-align: right; font-weight: bold;">4</td>
 <td style="text-align: left;">N</td>
 <td style="text-align: right;">0.0</td>
 <td style="text-align: left;">N</td>
-<td style="text-align: right;">0.20726</td>
-<td style="text-align: right;">0.0364055</td>
-<td style="text-align: right;">0.170855</td>
-<td style="text-align: right;">0.243666</td>
+<td style="text-align: right;">0.207265</td>
+<td style="text-align: right;">0.0364064</td>
+<td style="text-align: right;">0.170858</td>
+<td style="text-align: right;">0.243671</td>
 </tr>
 </tbody>
 </table>
@@ -2169,9 +2170,9 @@ Figure&nbsp;1: Smoothed relative frequency of contraception use versus centered 
 <li>The patterns for women with children are similar and we do not need to distinguish between 1, 2, and 3+ children.</li>
 <li>We do distinguish between those women who do not have children and those with children. This shows up in a significant <code>age &amp; children</code> interaction term.</li>
 </ul>
-<p><em>This page was rendered from git revision <a href="https://github.com/RePsychLing/SMLP2025/tree/b48d40c
-">b48d40c
-</a> using Quarto 1.7.29.</em></p>
+<p><em>This page was rendered from git revision <a href="https://github.com/RePsychLing/SMLP2025/tree/3c6f1f9
+">3c6f1f9
+</a> using Quarto 1.7.32.</em></p>
 
 
 </section>
