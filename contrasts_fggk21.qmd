@@ -220,9 +220,9 @@ There is some justification for the HeC4 specification in a post-hoc manner beca
 
 One could argue that there is justification for HeC3 because `Run` (1), `Star_r` (2), and `S20` (3) involve running but `SLJ` (4) does not. Sports scientists, however, recoil. For them it does not make much sense to average the different running tests, because they draw on completely different physiological resources; it is a variant of the old apples-and-oranges problem.
 
-The justification for HeC3 is that`Run` (1) and `Star_r` (2) draw more strongly on cardiosrespiratory _Endurance_ than `S20` (3) due to the longer duration of the runs compared to sprinting for 20 m which is a pure measure of the physical-fitness component _Speed_. Again, sports scientists are not very happy with this proposal.
+The justification for HeC3 is that`Run` (1) and `Star_r` (2) draw more strongly on cardiorespiratory _Endurance_ than `S20` (3) due to the longer duration of the runs compared to sprinting for 20 m which is a pure measure of the physical-fitness component _Speed_. Again, sports scientists are not very happy with this proposal.
 
-Finally, HeC1 contrasts the fitness components Endurance, indicated best by Run (1), and Coordination, indicated by `Star_r` (2). Endurance (i.e., running for 6 minutes) is considered to be the best indicator of health-related status among the five tests because it is a rather pure measure of cardiorespiratory fitness. The `Star_r` test requires execution of a pre-instructed sequence of forward, sideways, and backward runs. This coordination of body movements implies a demand on working memory (i.e., remembering the order of these subruns) and executive control processes, but performats also depends on endurance. HeC1 yields a measure of Coordination "corrected" for the contribution of Endurance.
+Finally, HeC1 contrasts the fitness components Endurance, indicated best by Run (1), and Coordination, indicated by `Star_r` (2). Endurance (i.e., running for 6 minutes) is considered to be the best indicator of health-related status among the five tests because it is a rather pure measure of cardiorespiratory fitness. The `Star_r` test requires execution of a pre-instructed sequence of forward, sideways, and backward runs. This coordination of body movements implies a demand on working memory (i.e., remembering the order of these subruns) and executive control processes, but performance also depends on endurance. HeC1 yields a measure of Coordination "corrected" for the contribution of Endurance.
 
 The statistical advantage of _HelmertCoding_ is that the resulting contrasts are orthogonal (uncorrelated). This allows for optimal partitioning of variance and statistical power. It is also more efficient to estimate "orthogonal" than "non-orthogonal" random-effect structures.
 
@@ -358,7 +358,7 @@ m_cpx_1_SeqDiff.PCA
 
 ## _PCA-based HypothesisCoding_: `contr4`
 
-The fourth set of contrasts uses _HypothesisCoding_ to specify the set of contrasts implementing the loadings of the four principle components of the published LMM based on test scores, not test effects (contrasts) - coarse-grained, that is roughly according to their signs. This is actually a very interesting and plausible solution nobody had proposed _a priori_.
+The fourth set of contrasts uses _HypothesisCoding_ to specify the set of contrasts implementing the loadings of the four principal components of the published LMM based on test scores, not test effects (contrasts) &mdash; coarse-grained, that is roughly according to their signs. This is actually a very interesting and plausible solution nobody had proposed _a priori_.
 
   - PC1: `BPT` - `Run_r`
   - PC2: (`Star_r` + `S20_r` + `SLJ`) - (`BPT` + `Run_r`)

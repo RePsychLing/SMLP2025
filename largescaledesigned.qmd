@@ -333,7 +333,7 @@ so the exact position of the lower cut-off point on the response latencies is un
 :::{.callout-note collapse="true"}
 ### Using inline transformations vs defining new columns
 
-If you examine the code for @fit-elpldtspeeddens, you will see that the conversion from `rt` to speed is done inline rather than creating and storing a new variable in the DataFrame.
+If you examine the code for @fig-elpldtspeeddens, you will see that the conversion from `rt` to speed is done inline rather than creating and storing a new variable in the DataFrame.
 
 I prefer to keep the DataFrame simple with the integer variables (e.g. `:rt`) if possible.
 
