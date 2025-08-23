@@ -100,7 +100,7 @@ Throughout this course, we have used the Makie ecosystem for plotting, but there
 
 ## Makie
 
-The [Makie ecosystem](https://makie.org/) is a relatively new take on graphics that aims to be both powerful and easy to use. Makie.jl itself only provides abstract definitions for many components (and is used in e.g. MixedModelsMakie.jl to define plot types for MixedModels.jl). The actual plotting and rendering is handled by a backend package such as CairoMakie.jl (good for Quarto notebooks or rending static 2D images) and GLMakie.jl (good for dynamic, interactive visuals and 3D images). AlgebraOfGraphics.jl builds a grammar of graphics upon the Makie framework. It's a great way to get good plots very quickly, but extensive customization is still best achieved by using Makie directly.
+The [Makie ecosystem](https://makie.org/) is a relatively new take on graphics that aims to be both powerful and easy to use. Makie.jl itself only provides abstract definitions for many components (and is used in e.g. MixedModelsMakie.jl to define plot types for MixedModels.jl). The actual plotting and rendering is handled by a backend package such as CairoMakie.jl (good for Quarto notebooks or rending static 2D images) and GLMakie.jl (good for dynamic, interactive visuals and 3D images). [AlgebraOfGraphics.jl](https://aog.makie.org/stable/) builds a grammar of graphics upon the Makie framework. It's a great way to get good plots very quickly, but extensive customization is still best achieved by using Makie directly. PumasAI has a collection of [nice tutorials for AlgebraOfGraphics](https://tutorials.pumas.ai/html/PlottingInJulia/).
 
 ## Plots.jl
 
