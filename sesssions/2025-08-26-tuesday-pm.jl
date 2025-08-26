@@ -38,3 +38,23 @@ shrinkageplot(fm_max, :subj)
 fm_max.rePCA[:subj]
 
 fm_max.PCA[:subj]
+
+
+# one final thing....
+# Julia makes it easy to show() things in different formats
+
+show(stdout, MIME("text/plain"), fm_max)
+
+show(stdout, MIME("text/markdown"), fm_max)
+
+show(stdout, MIME("text/markdown"), VarCorr(fm_max))
+
+show(stdout, MIME("text/latex"), fm_max)
+
+show(stdout, MIME("text/xelatex"), fm_max)
+
+show(stdout, MIME("text/html"), fm_max)
+
+open("mytable.md", "w") do io
+    show(io,  MIME("text/markdown"), fm_max)
+end
