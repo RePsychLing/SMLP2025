@@ -50,4 +50,27 @@ using SMLP2025: dataset
 using Random # core random number functionality in Julia
 using StableRNGs # guaranteed reproducibility
 
-StableRNG(1)
+# gives a different result every time
+rand()
+
+# but we can also specify a random number generator (RNG) with a seed
+rand(StableRNG(1))
+rand(StableRNG(1))
+
+rng = StableRNG(1)
+rand(rng)
+rand(rng)
+
+# stream
+
+fm1 = lmm(@formula(reaction ~ 1 + days + (1 + days| subj)), 
+          dataset(:sleepstudy))
+
+bs1 = parametricbootstrap(StableRNG(42), 1000, fm1; progress=true)   
+
+using DataFrames
+DataFrame(bs1.coefpvalues)
+
+# let's plot some stuff
+using CairoMakie
+using AlgebraOfGraphics
