@@ -148,3 +148,38 @@ item_btwn = Dict(:frequency => ["low", "high"])
 const RNG = StableRNG(42)
 dat = simdat_crossed(RNG, subj_n, item_n;
                      subj_btwn, item_btwn)
+
+simmod = fit(MixedModel,
+             @formula(dv ~ 1 + age * frequency +
+                          (1 + frequency | subj) +
+                          (1 + age | item)), dat)
+
+contrasts = Dict(:age => EffectsCoding(),
+                 :frequency => EffectsCoding())
+simmod = lmm(@formula(dv ~ 1 + age * frequency +
+                          (1 + frequency | subj) +
+                          (1 + age | item)), dat;
+                          contrasts)
+
+# let's add in some fixed effects
+
+β = [250.0, -25.0, 10, 0.0]
+simulate!(RNG, simmod; β)
+fit!(simmod)
+
+# let's add in some residual noise
+σ = 25.0
+fit!(simulate!(RNG, simmod; β, σ))
+
+# random effect stddevs are expressed relative
+# to the residual stddev
+subj_re = create_re(2.0, 1.3)
+item_re = create_re(1.3, 2.0)
+
+# convert all the RE to the theta representation
+θ = createθ(simmod; subj=subj_re, item=item_re)
+
+fit!(simulate!(RNG, simmod; β, σ, θ))
+
+samp = parametricbootstrap(RNG, 1000, simmod;
+                           β, σ, θ, progress=true)
