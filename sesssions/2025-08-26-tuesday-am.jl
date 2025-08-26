@@ -126,3 +126,9 @@ confint(bs1; method=:equaltail)
 # as part of the call to confint
 # in julia, the method is picked based on whether
 # you pass a model, a bootstrap or a profile object
+
+# post-coffee break
+
+# trading off replicate quality for quantity -- make sure to look at the docs for more info!
+bs2 = parametricbootstrap(StableRNG(666), 100, fm2;
+                                 progress=true, optsum_overrides=(;ftol_rel=1e-8))
