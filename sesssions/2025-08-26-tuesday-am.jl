@@ -41,3 +41,13 @@ x = 3
 @__FILE__
 @__DIR__
 pwd()
+
+
+### time for the the bootstrap
+
+using MixedModels
+using SMLP2025: dataset
+using Random # core random number functionality in Julia
+using StableRNGs # guaranteed reproducibility
+
+StableRNG(1)
