@@ -1,0 +1,618 @@
+---
+title: "goodwin_mwe"
+output: html_document
+date: "2025-08-17"
+editor_options: 
+  markdown: 
+    wrap: 72
+  chunk_output_type: console
+---
+# Setup 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(lme4)
+library(lmerTest)
+library(ggrepel)
+```
+
+The data in this project are corpus examples of dative verbs. Dative
+verbs take two arguments, and often allow two orders for the arguments:
+
+(1) The man threw her a ball (DO form)
+(2) The man threw a ball to her (PP form)
+
+Speakers have preferences for which form/ordering is better, which
+depend on some generally-applicable probabilistic constraints (e.g. short nouns are preferred earlier), as well as experience with the verb in either the DO or PP form.
+
+This dataset is about two questions:
+
+A. How does verb frequency influence the strength of its ordering
+preference (are more frequent verbs more likely to have strong
+preferences for one form or the other? Is this a gradient relationship,
+is it linearly increasing or with a step function?)
+
+B. Does exposure to "non-dative uses" influence dative ordering
+preferences? Non-dative uses are sentences that have PP or DO surface
+syntax, but due to semantic constraints do not alternate:
+
+(3) The man threw a ball to the floor / \* Threw the floor a ball
+(4) \* It took five seconds to the man/ It took the man five seconds
+
+Because these examples do not alternate, speakers might not use them as
+evidence of a verb preferring a certain form. On the other hand, certain
+verbs are more frequent in non-dative than dative uses; for such verbs,
+the speaker may have mostly non-dative evidence to draw on.
+
+```{r}
+# This is the gold labels- includes raw examples and their coding 
+df.allLabels <- read_tsv('gold_labels.tsv')
+
+# This is a dataframe with frequency estimates for each verb 
+# As well as their estimated preferences for DO or PP form, in both datives-only ("imputed") or datives and non-datives ("surface")
+df.frequencyEstimates <- read_tsv('frequency_estimates.tsv')
+```
+
+The **theme** refers to the argument being transferred, and the **recipient** to where the theme ends up. E.g. "give a dog a bone" and "give a bone to a dog" both have recipient 'a dog' and theme 'a bone'.
+
+The dependent variable: 
+-   structure (DO or PP)
+
+The fixed effects represent generally applicable probabilistic constraints on ordering, and are listed below. The details are not super important for this analysis, they have been identified/reported/tested elsewhere before (e.g. Bresnan et al., 2006) but here they are: 
+
+-   Verb sense (Abstract, Transfer of Possession, Future Possession... )
+-   Theme & Recipient Pronominality (fullNP or pronominal)
+-   Theme & Recipient Definiteness (definite or indefinite)
+-   Theme & Recipient Number (singular/plural/NA)
+-   Theme & Recipient Given (Recently-mentioned or New )
+-   Theme Concrete (concrete or Not Concrete)
+-   Recipient Animate (animate or inanimate)
+-   Recipient Person (local (1st or 2nd person) or nonlocal (3rd
+    person))
+-   Previous Structure (recent discourse has DO or PP-like sentence)
+-   Length Difference (sign-preserving log of the difference in number
+    of graphemic words between theme and recipient)
+
+The random by-verb intercept represents the verb-specific knowledge speakers have for whether a verb prefers the DO or PP form. There is one for each verb lemma ('give', 'send', etc).
+
+# Descriptive plots 
+
+Verbs vary widely in their preference for a form (DO or PP) and their frequency in dative uses. More frequent verbs prefer the DO form (positive trend in this graph) but a larger number of verb lemmas prefer the PP form (more mass below .5): 
+```{r}
+
+df.frequencyEstimates %>% 
+  ggplot(aes(x = log(imputed_dative_frequency), 
+             y = imputed_DO_skew)) + 
+  geom_point() +
+  geom_text_repel(aes(label = verbLemma)) + 
+  labs(title = "Verb Preference For DO Form by Frequency")
+```
+
+Some verbs have a very similar DO/PP preference between their dative and non-dativeuses (e.g. "promise", "allot"), some do not ("shoot", "vote", "grant"). This plot shows that, for at least some verbs, a speakers' experience with the verb preferring the DO or PP for really depends on whether you count non-dative uses. 
+
+```{r}
+
+df.frequencyEstimates %>% 
+  ggplot(aes(x = nonDative_DO_skew, 
+             y = imputed_DO_skew, 
+             alpha = log(surface_ditransitive_frequency))) + 
+  geom_abline(slope = 1,intercept = 0, linetype = 2)+ 
+  geom_point() +
+  geom_text_repel(aes(label = verbLemma)) + 
+  theme(legend.position = "none") + 
+  labs(title = "DO Preference Amongst Dative and Non-Dative Uses", 
+       subtitle = "Darker verbs are more frequent (log scaled)") 
+```
+
+
+# Prepare Model Data, Code Variables
+```{r}
+# We fit the model on 6837 examples of 91 verb lemmas 
+## (those w at least 10 true dative examples) 
+# Sentences that had some issue with coding, but were definitely dative, are excluded
+## from the model but are otherwise considered dative for estimating frequency values 
+df.datives <- df.allLabels %>% 
+  filter(isDative == TRUE & ableToTiebreak == TRUE & 
+           themeDefinite != "UNK" & recipientDefinite != "UNK") %>% 
+  group_by(verbLemma) %>% 
+  add_count() %>% 
+  filter(n >=10) %>% 
+  select(-n) %>% 
+  ungroup()
+
+df.datives %>% nrow()
+df.datives %>% group_by(verbLemma) %>% summarize() %>% nrow()
+
+df.datives %>% group_by(verbLemma) %>% add_count() %>% filter(n>=50) %>% summarize() %>% nrow()
+
+# We fit the model using the OG Bresnan et al animacy scheme, with 2 labels:
+## RecipientAnimacy: 1 (human + animal) or 0 
+## ThemeConcrete: 1 (for concrete things) or 0 
+df.datives_recoded <- df.datives %>% 
+  mutate(
+    themeConcrete = case_when(
+      themeAnimacy %in% c('Human', 'Animal', 'Concrete', 'Vehicle', 'Machine') ~ 1,
+      .default = 0), # Org, NotConc, time, Mix, place, no way to decide, machine
+    themeAnimacy = case_when(
+      themeAnimacy %in% c('Human', 'Animal') ~ 1, .default = 0),
+    recipientConcrete = case_when(
+      recipientAnimacy %in% c('Human', 'Animal', 'Concrete', 'Vehicle', 'Machine') ~ 1,
+      .default = 0),
+    recipientAnimacy = case_when(
+      recipientAnimacy %in% c('Human', 'Animal') ~ 1, .default = 0))
+
+
+# Recode all the fixed effects
+df.model_data_corpus <- df.datives_recoded %>% 
+  mutate(
+    Structure = structure,
+    structure = case_when(
+      structure == "PP" ~ 0, 
+      structure == "DO" ~ 1),
+    themeNumber = case_when(
+      is.na(themeNumber) ~ "NA", 
+      .default = themeNumber),
+    recipientNumber = case_when(
+      is.na(recipientNumber)~"NA", 
+      .default = recipientNumber),
+    recipientPerson = case_when(
+      recipientPerson == 'third' ~ 'nonlocal', 
+      .default = 'Local'),
+    themePerson = case_when(
+      themePerson == 'third' ~ 'nonlocal', 
+      .default = 'Local'))%>% 
+  mutate(
+    previousStructure = factor(previousStructure, levels = c("None", "DO", "PP")),
+    themeNumber = as.factor(themeNumber), 
+    recipientNumber = as.factor(recipientNumber),
+    themeDefinite = as.factor(themeDefinite),
+    recipientDefinite = as.factor(recipientDefinite),
+    themeGiven = as.factor(themeGiven), 
+    recipientGiven = as.factor(recipientGiven), 
+    themeAnimacy = as.factor(themeAnimacy),
+    themeConcrete = as.factor(themeConcrete),
+    recipientAnimacy = as.factor(recipientAnimacy), 
+    themePronominal = as.factor(themePronominal),
+    recipientPronominal = as.factor(recipientPronominal),
+    themePerson = as.factor(themePerson), 
+    recipientPerson = as.factor(recipientPerson),
+    verbSense = as.factor(verbSense), 
+    lengthDifference = case_when(
+      themeLength > recipientLength ~ log(abs(themeLength-recipientLength) +.5),
+      .default = -1*log(abs(themeLength-recipientLength) +.5))
+  )
+
+  
+```
+
+## themeGiven - ok
+
+```{r}
+df.model_data_corpus |> 
+  rename(tG = themeGiven) |> 
+  group_by(tG, verbLemma, Structure) |>  
+  count() |> 
+  pivot_wider(names_from="Structure", values_from="n") |>
+  mutate(DO = ifelse(is.na(DO), 0, DO),
+         PP = ifelse(is.na(PP), 0, PP)) |> 
+  print(n=182)
+nrow(df.model_data_corpus) #6837
+
+df.model_data_corpus |>
+  group_by(themeGiven, Structure) |> tally() |> spread(Structure,n)
+```
+
+## recipientGiven- ok
+
+```{r}
+df.model_data_corpus |> 
+  rename(rG = recipientGiven) |> 
+  group_by(rG, verbLemma, Structure) |>  
+  count() |> 
+  pivot_wider(names_from="Structure", values_from="n") |>
+  mutate(DO = ifelse(is.na(DO), 0, DO),
+         PP = ifelse(is.na(PP), 0, PP)) |> 
+  print(n=182)
+nrow(df.model_data_corpus) #6837
+
+df.model_data_corpus |>
+  group_by(recipientGiven, Structure) |> tally() |> spread(Structure,n)
+
+```
+
+## themePronominal - not ok
+
+Don't include as factor in the GLMM. It occurs very infrequently and  when it is true it prefers PP. 
+
+```{r}
+df.model_data_corpus |> 
+  rename(tP = themePronominal) |> 
+  group_by(tP, verbLemma, Structure) |>  
+  count() |> 
+  pivot_wider(names_from="Structure", values_from="n") |>
+  mutate(DO = ifelse(is.na(DO), 0, DO),
+         PP = ifelse(is.na(PP), 0, PP)) |> 
+  print(n=177)
+nrow(df.model_data_corpus) #6837
+
+df.model_data_corpus |>
+  group_by(themePronominal, Structure) |> tally() |> spread(Structure,n)
+
+```
+
+## recpientPronominal -  interesting
+
+```{r}
+df.model_data_corpus |> 
+  rename(rP = recipientPronominal) |> 
+  group_by(rP, verbLemma, Structure) |>  
+  count() |> 
+  pivot_wider(names_from="Structure", values_from="n") |>
+  mutate(DO = ifelse(is.na(DO), 0, DO),
+         PP = ifelse(is.na(PP), 0, PP)) |> 
+  print(n=177)
+nrow(df.model_data_corpus) #6837
+
+df.model_data_corpus |>
+  group_by(recipientPronominal, Structure) |> tally() |> spread(Structure,n)
+```
+
+## themeDefinite
+
+```{r}
+df.model_data_corpus |> 
+  rename(tD = themeDefinite) |> 
+  group_by(tD, verbLemma, Structure) |>  
+  count() |> 
+  pivot_wider(names_from="Structure", values_from="n") |>
+  mutate(DO = ifelse(is.na(DO), 0, DO),
+         PP = ifelse(is.na(PP), 0, PP)) |> 
+  print(n=177)
+nrow(df.model_data_corpus) #6837
+
+df.model_data_corpus |>
+  group_by(themeDefinite, Structure) |> tally() |> spread(Structure,n)
+```
+
+## recipientDefinite
+
+```{r}
+df.model_data_corpus |> 
+  rename(rD = recipientDefinite) |> 
+  group_by(rD, verbLemma, Structure) |>  
+  count() |> 
+  pivot_wider(names_from="Structure", values_from="n") |>
+  mutate(DO = ifelse(is.na(DO), 0, DO),
+         PP = ifelse(is.na(PP), 0, PP)) |> 
+  print(n=177)
+nrow(df.model_data_corpus) #6837
+
+df.model_data_corpus |>
+  group_by(recipientDefinite, Structure) |> tally() |> spread(Structure,n)
+```
+
+## recipientAnimacy
+
+```{r}
+df.model_data_corpus |> 
+  rename(rA = recipientAnimacy) |> 
+  group_by(rA, verbLemma, Structure) |>  
+  count() |> 
+  pivot_wider(names_from="Structure", values_from="n") |>
+  mutate(DO = ifelse(is.na(DO), 0, DO),
+         PP = ifelse(is.na(PP), 0, PP)) |> 
+  print(n=177)
+nrow(df.model_data_corpus) #6837
+
+df.model_data_corpus |>
+  group_by(recipientAnimacy, Structure) |> tally() |> spread(Structure,n)
+```
+
+
+## themeConcrete
+
+```{r}
+df.model_data_corpus |> 
+  rename(tC = themeConcrete) |> 
+  group_by(tC, verbLemma, Structure) |>  
+  count() |> 
+  pivot_wider(names_from="Structure", values_from="n") |>
+  mutate(DO = ifelse(is.na(DO), 0, DO),
+         PP = ifelse(is.na(PP), 0, PP)) |> 
+  print(n=177)
+nrow(df.model_data_corpus) #6837
+
+df.model_data_corpus |>
+  group_by(themeConcrete, Structure) |> tally() |> spread(Structure,n)
+```
+
+## recipientPerson
+
+```{r}
+df.model_data_corpus |> 
+  rename(rP = recipientPerson) |> 
+  group_by(rP, verbLemma, Structure) |>  
+  count() |> 
+  pivot_wider(names_from="Structure", values_from="n") |>
+  mutate(DO = ifelse(is.na(DO), 0, DO),
+         PP = ifelse(is.na(PP), 0, PP)) |> 
+  print(n=177)
+nrow(df.model_data_corpus) #6837
+
+df.model_data_corpus |>
+  group_by(recipientPerson, Structure) |> tally() |> spread(Structure,n)
+```
+
+## recipientNumber (three-level factor)
+
++ NA is reference?
+
+```{r}
+df.model_data_corpus |> 
+  rename(rN = recipientNumber) |> 
+  group_by(rN, verbLemma, Structure) |>  
+  count() |> 
+  pivot_wider(names_from="Structure", values_from="n") |>
+  mutate(DO = ifelse(is.na(DO), 0, DO),
+         PP = ifelse(is.na(PP), 0, PP)) |> 
+  print(n=177)
+nrow(df.model_data_corpus) #6837
+
+df.model_data_corpus |>
+  group_by(recipientNumber, Structure) |> tally() |> spread(Structure,n)
+```
+
+## themeNumbe (three-level factor)
+
++ NA is reference?
+
+```{r}
+df.model_data_corpus |> 
+  rename(tN = themeNumber) |> 
+  group_by(tN, verbLemma, Structure) |>  
+  count() |> 
+  pivot_wider(names_from="Structure", values_from="n") |>
+  mutate(DO = ifelse(is.na(DO), 0, DO),
+         PP = ifelse(is.na(PP), 0, PP)) |> 
+  print(n=217)
+nrow(df.model_data_corpus) #6837
+
+df.model_data_corpus |>
+  group_by(themeNumber, Structure) |> tally() |> spread(Structure,n)
+```
+
+## previousStructure
+
+```{r}
+df.model_data_corpus |> 
+  rename(tN = themeNumber) |> 
+  group_by(tN, verbLemma, Structure) |>  
+  count() |> 
+  pivot_wider(names_from="Structure", values_from="n") |>
+  mutate(DO = ifelse(is.na(DO), 0, DO),
+         PP = ifelse(is.na(PP), 0, PP)) |> 
+  print(n=217)
+nrow(df.model_data_corpus) #6837
+
+df.model_data_corpus |>
+  group_by(themeNumber, Structure) |> tally() |> spread(Structure,n)
+```
+
+## lengthDifference  - ok - 
+
++ zscore
+
+```{r}
+df.model_data_corpus |> 
+  rename(lD = lengthDifference) |> 
+  group_by(lD, verbLemma, Structure) |>  
+  count() |> 
+  pivot_wider(names_from="Structure", values_from="n") |>
+  mutate(DO = ifelse(is.na(DO), 0, DO),
+         PP = ifelse(is.na(PP), 0, PP)) |> 
+  print(n=217)
+nrow(df.model_data_corpus) #6837
+
+df.model_data_corpus |> 
+  group_by(Structure) |> 
+  summarize(N=n(), ld_M=mean(lengthDifference), 
+                   ld_SD = sd(lengthDifference),
+                   ld_SE=sd(lengthDifference)/sqrt(N))
+```
+
+```{r}
+df_rk <- 
+  df.model_data_corpus |> 
+  left_join(df.frequencyEstimates, by="verbLemma") |> 
+  mutate(lsdf = log(surface_ditransitive_frequency))
+
+m1 <- glmer(structure ~
+        verbSense +
+        themeGiven + recipientGiven +
+        themePronominal + recipientPronominal +
+        themeDefinite + recipientDefinite +
+        recipientAnimacy +
+        themeConcrete +
+        recipientPerson +
+        recipientNumber + themeNumber +
+        previousStructure +
+        lengthDifference +
+        (1|verbLemma),
+      data = df_rk,
+      family = "binomial",
+      control=glmerControl(calc.derivs=FALSE))
+print(summary(m1),cor=FALSE)
+anova(m1, fit.corpusModel)
+df.model_data_corpus$resid = resid(m1)
+```
+
+```{r}
+m2 <-  glmer(structure ~
+        themePronominal +
+        themeGiven + recipientGiven +
+        recipientPronominal +
+        themeDefinite + recipientDefinite +
+        recipientAnimacy +
+        themeConcrete +
+        lengthDifference +
+        (1|verbLemma),
+      data = df_rk,
+      family = "binomial",
+      control=glmerControl(calc.derivs=FALSE))
+print(summary(m2),cor=FALSE)
+anova(m2, m1)
+```
+
++ Reduction is defensible by AIC and BIC
++ Add log sdf
+
+```{r}
+m3 <- glmer(structure ~
+        lsdf +        
+        themePronominal +
+        themeGiven + recipientGiven + 
+        recipientPronominal +
+        themeDefinite + recipientDefinite +
+        recipientAnimacy +
+        themeConcrete +
+        lengthDifference +
+        (1|verbLemma),
+      data = df_rk,
+      family = "binomial",
+      control=glmerControl(calc.derivs=FALSE))
+print(summary(m3),cor=FALSE)
+anova(m2, m3)
+```
+
+log sdf is significant by AIC.  DO preference increases with frequency. 
+
+I think your hypothesis of "polarization" translates into an interaction between log sdf and one or several of the factors. Do you have an a prior expectation?
+
+```{r}
+m4 <- glmer(structure ~
+        lsdf *  (      
+        themePronominal +
+        themeGiven + recipientGiven + 
+        recipientPronominal +
+        themeDefinite + recipientDefinite +
+        recipientAnimacy +
+        themeConcrete +
+        lengthDifference) +
+        (1|verbLemma),
+      data = df_rk,
+      family = "binomial",
+      control=glmerControl(calc.derivs=FALSE))
+print(summary(m4),cor=FALSE)
+
+anova(m2, m3, m4)
+```
+
++ The esemble of interaction provides no evidence for such an interaction, but I think perhaps you expect it for only one of them. 
++ I really wonder about including themePronominal. It is definitely not a standard factor -- too many empty cells. Perhaps include a dummy for some of the verbLemmas?
++ There may be better statistical models than GLMM for your data -- for example categorical data analysis (Agresti). However, I don't know them and I don't know whether they can deal with within-verbLemma factors.  
+
+
+# Fit the model 
+
+This model does not converge: 
+
+```{r}
+fit.corpusModel <- glmer(structure ~
+                       verbSense +
+                       themeGiven + recipientGiven +
+                       themePronominal + recipientPronominal +
+                       themeDefinite + recipientDefinite +
+                       recipientAnimacy +
+                       themeConcrete +
+                       recipientPerson +
+                       recipientNumber + themeNumber +
+                       previousStructure +
+                       lengthDifference +
+                       (1|verbLemma),
+                     data = df.model_data_corpus,
+                     family = "binomial",
+                     control=glmerControl(calc.derivs=FALSE))
+
+fit.corpusModel %>% summary()
+
+isSingular(fit.corpusModel) # FALSE
+summary(rePCA(fit.corpusModel)) 
+```
+
+Switching off some post-fit checks (calc.derivs=FALSE), eliminates the message. Note that is a WARNING, not an error. The non-convergence may have been a false positive. My default checks don't see any problems either. I will also run the model in MixedModels.jl. I don't expect any problems. (Doug Bates wanted the warning be switched off by default; Ben Bolker is very hesitant and worries that the warning may reduce reporting of false results.)
+
+**Question 1: Do more frequent verbs have ordering preferences that are driven more by item-specific knowledge?** 
+
+The following plot shows that the verbs' random intercepts (representing speakers' verb-specific knowledge, after abstracting away generally-applicable rules)increase in magnitude with log verb frequency. Since more frequent verbs have  larger intercepts, we take this to mean that speakers rely more on item-specific knowledge for those verbs. 
+
+RK: Hm. 
+This may be a problematic use of random intercepts (aka conditional modes). Recall that one of the advantages of (G)LMMs is that they borrow strength from the population to estimate a specific conditional mode. This depends on the variability, the number of observations you have for a specific verb, and how far from the population mode the verb is. For high variability, few observations, and far away from population mode in positive or negative direction, "causes" the model to shrink the observed mean towards the population mean. Thus, this machinery implies that the conditional modes are NOT independent observations. Therefore, inference statistics that assumes that they are may no longer be valid. This applies to the kind of correlation or regression you describe. 
+   I assume in this corpus frequency is a between-verb covariate? If it were possible to compute frequency for different contexts, that is if frequency were a within-verb covariate, your hypothesis would predict a positive correlation parameter for Intercept and frequency slope (effect). (I may also have misunderstood your analysis. We can certainly follow up next week.)
+   You may wonder what they are good for if you can't use them your way. There are probably more, but two are: (1) They better predict the future "performance" than the unadjusted mean. (2) They are very important heuristic information about what is not (yet) accounted by fixed effects. For example, clusters of conditional modes may come from an identifiable subgroup. Then, in the next study, this group membership could be included in the fixed effects and the variance associated with this random effect would be reduced. 
+   There are papers that suggest one can ignore my concerns. I do not find them convincing, but there obviously is room for disagreement. 
+
+```{r}
+
+
+df.randomEffects <- ranef(fit.corpusModel) %>% 
+  as_tibble() %>%
+  mutate(verbLemma = grp, 
+          estimateIntercept = condval, 
+          estimateSD = condsd) %>% 
+  select(verbLemma, estimateIntercept, estimateSD)
+
+df.randomEffects %>% 
+  left_join(df.frequencyEstimates) %>% 
+  ggplot(aes(x = log(surface_ditransitive_frequency), 
+             y = abs(estimateIntercept))) + 
+  geom_point() + 
+  geom_smooth(method = "lm") + 
+  geom_text_repel(aes(label = verbLemma))
+```
+
+**Question 2: Does experience with non-dative verbs influence ordering preferences?**
+
+Recall that our second question was whether speakers base their ordering preferences on experience with a verb in non-dative structues. 
+
+In the following model, the proportion of DO forms amongst non-dative uses was not found to be a significant influence on the verb-specific intercept; we therefore cannot conclude that additional evidence with a verb in non-dative structures is "useful" for speakers when deciding how to order datives. 
+
+RK: See comment above. Let's talk about this at some point.
+
+```{r}
+df.experienceModelData <- ranef(fit.corpusModel) %>% 
+  as_tibble() %>%
+  mutate(verbLemma = grp, 
+          estimateIntercept = condval, 
+          estimateSD = condsd) %>% 
+  select(verbLemma, estimateIntercept, estimateSD) %>% 
+  left_join(df.frequencyEstimates)
+
+fit.experienceModel <- lm(estimateIntercept ~ nonDative_DO_skew + imputed_DO_skew, 
+                          data = df.experienceModelData)
+
+fit.experienceModel %>%  summary()
+```
+
+# Questions 
+(1) Model 0 (fit.corpusModel) obviously doesn't converge. 
+So far I have fit & reported a BRMS version of this model, but I want to really understand what it actually means that a model doesn't convergem and in some sense how it is "ok" to then just turn around and fit the same model with a Bayesian approach (although maybe that is a question for the other track)
+
+RK: No, this is a very good question and, perhaps unfortunately, please don't expect a definite answer! There are many contingencies. Ben Bolker loves to talk about this stuff. On a personal note: I have never done what you describe; I have always found a model I considered supported by the data. But, as Ben Bolker told me today, I put my "regularization" in (somewhat) subjective decisions about model selection. We  will certainly talk a lot about this; I think I can communicate and defend my decisions in a transparent way. Key components are to develop consistency in your criteria for your research program and a willingness to stand corrected. There are many situations in which one simply does not know what would be best, but this might be different a year from now. If you want to live at the front of research, you must be willing to live with ambiguity.  
+
+(2) I think I still don't understand how to interpret individual things, for example the random effects- what space are they in? I know that if they are positive that means that the verb prefer the DO form (because of how I coded the response variable) but I actually also don't **really** understand the coding schemes and the terms applied.
+
+RK: Yes, this will definitely be covered. The primary reason I started to work with linear mixed models because they gave me the opportunity to merge experimental and individual difference psychology. The short answer is: Correlation parameters are effect (contrast) correlations if they derive from factors. As such they are individual differences in the size of experimental effects. Obviously, it is absolutely crucial that you know what a positive fixed contrast effect means, because the sign of the effect will determine the size of any correlation parameter it will be involved. To generalize from factor-based contrasts to effects of numeric covariates, it may be helpful to remember that -- like  a contrast effect -- a slope is a difference score, too: It tells you how much your dependent variable changes when you move one unit to the right on the x-axis. Thus, it is the difference in the dependent variable between x=n+1 and x=n. Then, the logic described above for correlation parameters involving contrasts applies to correlation parameters involving slopes. In summary: Key to understanding correlation parameters is (1) that they refer to individual or item differences in fixed effects and (2) a solid understanding of contrast specifications. With these two ingredients, everything will fall into place very quickly.  We will have plenty of time talking about this. So no sweat if this explanation is too cryptic.
+
+(3) Just some general understanding where I feel so behind...for example, what are families. what is a "link" function. I know its logistic (dep variable binary) so I type in a family = binomial and I guess that makes sense because I know that binomial function represents a number of successes (from a paradigm with two outcomes) but how is that function used by this model?
+
+RK: The answer to this question would be too technical. The short answer is: Very, very differently! The similarity in model formula specification is very deceptive about what is going on after processing starts. An obvious indication of this is that it takes much longer to fit other the standard linear mixed models. Of course, this will be covered next week, usually not in too much detail, but the depths of explanations will be driven by participants' interest. We certainly can take you down as deep as you want.
+
+(4) I frequently feel my analyses notebooks get messy/difficult to follow very, very quickly. The internet has a lot of advice like "make sure your filepaths are relative/portable to someone who clones your repository". This is good practice but I do think there is some bigger problem about structure/organization that I find hard to articulate. Happy to hear any advice. 
+
+RK: I think tidyverse syntax greatly improved the readability of scripts. At a more global level, I follow quite a rigid overall structure that has served me well and I like to talk about. Of course and certainly there is quite a bit of development in what is considered best practice. SMLP is also place to learn from each other.  
+
+```{r}
+library(arrow)
+write_feather(data.frame(df.model_data_corpus), "df.model_data_corpus.arrow", compression="zstd")
+```
+

@@ -1,0 +1,338 @@
+---
+title: "RePsychLing Miriam Oschkinat's 'Perturbation Experiment'"
+author: "Reinhold Kliegl"
+date: today
+date-format: iso
+format: 
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    code-fold: false
+    number-sections: true
+    fig-width: 8
+    fig-height: 6
+    fig-format: svg
+editor_options: 
+  chunk_output_type: console
+---
+
+# Setup
+
+```{r}
+pacman::p_load(
+  easystats,
+  tidyverse,
+  lme4,
+  emmeans,
+  MuMIn,
+  hrbrthemes,
+  summarytools,
+  Rmisc,
+  arrow
+  )
+```
+
+# Experiment
+
+## Overview
+
+This is data from an auditory speech feedback perturbation experiment. In these kind of experiments, speakers say something, while they receive a manipulated version of their own speech via headphones. In our experiments, we specifically manipulate the durations of single sounds in words by first temporally stretching a sound, and then compressing another sound. For example, speakers may say the German word "Stadt", but they hear themselves saying "Staat". Thus, the "a" is stretched (and the "t" compressed). In our analyses, we evaluate how speech patterns change due to these manipulations. Typically, speakers counteract the perturbation with production patterns in the *opposite* direction of the manipulation, e.g., a stretched sound in perturbation would be produced shorter in response.
+
+The figure depicts the stretching of segments (green line) and compression of segments (magenta line) over the course of an experimental condition.
+
+(Note: this specific experiment presented here actually has only 95 and not 110 trials, the principle however is the same and should not matter).
+
+```{r, echo = FALSE}
+knitr::include_graphics('setup.jpeg')
+```
+
+## Question
+
+In our analyses, we examine how speakers change their productions (durations of the single sounds "u" and "s" ) over the course of the experiment (=per phase) and per condition, specifically in the Hold phase compared to the Baseline, and the After-effect phase compared to the Baseline and Hold phase.
+
+## Design factors
+
+**Within-subject factor: Phase** 
+Each experimental condition starts with a phase of no perturbation (Baseline- **B**) for several trials, then there is a Ramp phase in which perturbation gradually increases, a Hold phase (**H**) with maximum perturbation, and an After effect phase (**A**) with no perturbation again.  
+
+**Within-subject factor: Condition** 
+The experiment consists of two conditions (**Onset** and **Coda** condition) in which participants utter a word in 110 trials (110 times - once per trial, see Figure below). Every participant completed both conditions.
+  
+**Within-subject factor: Sound** 
+In the Onset condition, the French word *soute* is manipulated, so that the sound **"s"** is stretched and the sound **"u"** compressed, while in the Coda condition, the word *tousse* is uttered in which the **"u"** is stretched and the **"s"** compressed.  
+
+**Summary**
+
++ Filter out R: Ramp phase for now
++ Phase: B: Baseline, H: Hold, A: Aftereffect
+    + Helmert contrast:  (1) Hold - Baseline, (2) Aftereffect - (Hold+Baseline)/2
+    + RK: I doubt the second contrast is in line with your expectations. Why do you want to average across baseline and hold phases?  
++ Condition - sum contrast
++ Sound - sum contrast
++ Pert direction (stretched - compressed) is Condition x Sound interaction.
+    + Onset s: stretched
+    + Onset u: compressed
+    + Coda  s: compressed
+    + Coda  u: stretched 
+
+## Alternative design
++ Condition
++ Pert (direction)
++ Sound (u - s) is the Condition x Pert interaction
+    + Onset compressed: u
+    + Onset stretched:  s
+    + Coda  compressed: s
+    + Coda  stretched:  u
+
+If the theoretical focus is on effects of pert directio, you might want to replace Sound with Pert in the analyses. This yields two main effects for Condition and Pert. Of course, it is also ok to say that Condition x Sound interaction is a statistical test of the Pert direction effect and go with your design. This is a nice example where an interaction in 2 x 2 design maps onto a third "main" effect. 
+
+# Preprocessing
+
+```{r}
+data <- 
+  as_tibble(read.csv("data.csv")) |> 
+  dplyr::rename(dur=dur_in_s, trial=trialnumber) |> 
+  filter(!phase == "R") |> 
+  mutate(Subj = as_factor(paste0("S", str_pad(subject_number, 
+                      width = 2, side = "left", pad = "0"))),
+         Phase = factor(phase, levels=c("B", "H", "A")),
+         Condition = factor(condition, levels=c("Onset", "Coda")),
+         Sound = factor(sound, levels=c("s", "u")),
+         Pert = factor(pert_direction, levels=c("compressed", "stretched"))
+         ) |> 
+  select(Subj, trial, Condition, Sound, Phase, Pert, dur) |> 
+  droplevels()
+```
+
+# Checks
+
+## Design factors
+
+```{r}
+#stview(dfSummary(data))
+data |> group_by(Condition, Sound, Pert) |> tally() |> spread(Pert, n)
+data |> group_by(Condition, Pert, Sound) |> tally() |> spread(Sound, n)
+data |> group_by(Subj, Phase, Condition, Pert) |> tally() |> print(n = 25)
+```
+
+## Response distribution
+
+```{r}
+MASS::boxcox(dur ~ 1 + Phase + Condition + Sound + Subj, data=data)
+```
+
+This may suggest a square-root transformation. This is usually applied to "amounts". I am not sure there is a good rationale. We may want to check whether there is noticeable benefit for statistical power or the quality of LMM residual distribution. 
+
+# Data Overview
+
+## Histogram of duration 
+
+```{r}
+data |> 
+  ggplot( aes(x=dur, fill=Sound)) +
+    geom_histogram( color="#e9ecef", alpha=0.6, position = 'identity') +
+    scale_fill_manual(values=c("#69b3a2", "#404080")) +
+    theme_ipsum() +
+    labs(fill="")
+```
+
+`Sound` is associated with bimodal distribution of durations. This is a huge effect. Then, it might be better to use `Sound`, not `Pert` as factor. (Otherwise we get a very large interaction that will be difficult to read.)
+
+## Boxplots
+
+## Condition x Sound x Phase
+
+```{r}
+data |> 
+  group_by(Subj, Condition, Sound, Phase) |> 
+  reframe(dur_m = mean(dur)) |> 
+  #View()
+  ggplot(aes(x = Condition, y = dur_m, color = Sound, alpha = Sound, fill = Sound)) +
+  geom_boxplot() +
+  facet_wrap(~Phase) +
+  scale_color_manual(values = c("#69b3a2", "#404080")) +
+  scale_fill_manual(values = c("#69b3a2",  "#404080")) +
+  scale_alpha_manual(values = c(0.8, 0.2, 0.8, 0.2))
+```
+
+## Line graphs
+
+Experimental effects and interactions are easier to see in line plots. 
+
+```{r}
+data |> 
+    summarySEwithin(measurevar="dur",
+    betweenvars = NULL, 
+    withinvars = c("Phase", "Condition", "Sound"), idvar = "Subj",
+    na.rm = FALSE, conf.interval = 0.95, .drop = TRUE) |> 
+    ggplot(aes(x=Condition, y=dur, group=Sound, color=Sound)) +
+    facet_grid(.~Phase) +
+    geom_point() + geom_line() +
+    geom_errorbar(aes(ymax=dur+ci, ymin=dur-ci), width=.05) +
+    scale_y_continuous("Duration [ms]") +
+    scale_color_manual(values = c("#69b3a2", "#404080")) +
+    theme_bw()
+```
+
+# Modeling
+
+We are mainly interested in the difference between phases per sound per condition.  
+Therefore, we fit a linear mixed model first, and then get more information with emmeans pairwise comparison. 
+
+##  LMM
+
+### Phase x Condition x Sound
+
+```{r}
+contrasts(data$Phase) <- contr.helmert(3)
+contrasts(data$Condition) <- contr.sum(2)
+contrasts(data$Sound) <- contr.sum(2)
+contrasts(data$Pert) <- contr.sum(2)  # just in case
+```
+
+#### Complex LMM
+
+```{r}
+model0 = lmer(dur ~ 1 + Phase * Condition * Sound +
+                   (1 + Phase * Condition * Sound  | Subj),
+              data = data, REML=FALSE, control=lmerControl(calc.derivs=FALSE))
+isSingular(model0) # ok
+summary(rePCA(model0)) # not ok, but not by much.
+
+VarCorr(model0)
+model_parameters(model0, effects="fixed")
+```
+
+This model is only slightly overparameterized. 
+
+#### Reduced complexity LMM
+
+```{r}
+model1 = lmer(dur ~ 1 + Phase * Condition * Sound +
+                   (1 + Phase + Condition * Sound  | Subj),
+              data = data, REML=FALSE, control=lmerControl(calc.derivs=FALSE))
+isSingular(model1) # ok
+summary(rePCA(model1)) # ok
+
+VarCorr(model1)
+m1_fe <- model_parameters(model1, effects="fixed")
+m1_fe
+
+anova(model1, model0)
+```
+
+The data support this LMM for this design. There is some loss of goodness-of-fit relative to the complex LMM
+
+#### "Ideal" LMM
+
+```{r}
+model2 = lmer(dur ~ 1 + Phase * Condition * Sound +
+                   (1 + Phase + Condition + Sound  | Subj),
+              data = data, REML=FALSE, control=lmerControl(calc.derivs=FALSE))
+
+VarCorr(model2)
+model_parameters(model1, effects="fixed")
+
+anova(model2, model1, model0)
+```
+
+Goodness of fitness statistics suggest that the RES is too simple. Your fixed-effect estimates would not be conservative (i.e., there is a risk of false positives).
+
+### Alternative Condition x Pert specification
+
+```{r}
+model1a = lmer(dur ~ 1 + Phase * Condition * Pert +
+                    (1 + Phase + Condition * Pert  | Subj),
+              data = data, REML=FALSE, control=lmerControl(calc.derivs=FALSE))
+isSingular(model1a) # ok
+summary(rePCA(model1a)) # ok
+
+VarCorr(model1a)
+m1a_fe <- model_parameters(model1a, effects="fixed")
+m1a_fe
+
+anova(model1, model1a)
+```
+
+## Model plots
+
+```{r}
+plot(model1)
+qqnorm(resid(model1))
+
+model1.residuals <- resid(model1)
+
+model1.residuals <- as.data.frame(model1.residuals)
+
+ggplot(model1.residuals)+
+  aes(x=model1.residuals)+
+  geom_density()
+```
+
+This looks very good. 
+
+## Post-hoc LMM
+
+Here is post-hoc option: Check the Condition x Sound interaction in each Phase. This is a re-paramterized version of model 1 (i.e., identical goodness of fit). If you are theoretically interested in whether there is or is not a Pert effect in the three phases, this would be primary LMM. 
+
+```{r}
+model1N = lmer(dur ~ 1 + Phase / (Condition * Sound) +
+                    (1 + Phase + Condition * Sound  | Subj),
+              data = data, REML=FALSE, control=lmerControl(calc.derivs=FALSE))
+isSingular(model1N) # ok
+summary(rePCA(model1N)) # ok
+anova(model1, model1N)
+
+VarCorr(model1N)
+m1N_fe <- model_parameters(model1N, effects="fixed")
+m1N_fe 
+```
+
+
+```{r}
+model1aN = lmer(dur ~ 1 + Phase / (Condition * Pert) +
+                    (1 + Phase + Condition * Pert  | Subj),
+              data = data, REML=FALSE, control=lmerControl(calc.derivs=FALSE))
+isSingular(model1aN) # ok
+summary(rePCA(model1aN)) # ok
+anova(model1, model1aN)
+
+VarCorr(model1aN)
+m1aN_fe <- model_parameters(model1aN, effects="fixed")
+m1aN_fe 
+```
+
+RK: I think this is interesting. You have a Pert effect (i.e., a significant Condition x Sound interaction) for baseline (t=4.9) and aftereffect (t=6.2) phases, but not for the hold phase (t=0.47). This matches the line graphs above. 
+
+# Issues
+
++ This design might be a bit too much, technically our participants are also divided into two groups which we would like to compare - so the design is too large for the data I fear. When and how to best split models, e.g. calculate one model for Onset condition and one for Coda condition? How to deal with too large designs? And what if I can't have the perfect random effects structure?
+
+RK: The model looks fine. I think there is "room" for a between-group factor in the LMM. I am confident that it would not generate technical problems. However, 2 x 12 subjects will probably not provide good statistical power to reject associated null hypotheses for main effect and interactions.
+    You may want to try to include the ramp phase and also model changes within phases across trials. 
+    Questions about experimental designs (i.e., specification of fixed effects) and model selection (i.e., pruning of random effect structure) are a focus of the course.
+
++ I would like to learn more about model diagnostics and power statistics
+
+RK: These topics are also content of the course. 
+
++ I would like to learn more about optimizers. In the past I have used optimizers to make models converge - is there something special to keep in mind when checking model diagnostics when we have used optimizers?  
+
+RK: Unless you have a technical interest in this question, I actually don't think it is relevant for your research. For example, whenever I ran into problems with optimizers, the solution was not to switch to a different optimizer, but the complexity of the model. They typically suggest that I am asking too much. Of course, this is useful topic for discussion at SMLP2025. 
+     In general, you may have notices that -- following Douglas Bates's recommendation -- I included `control=lmerControl(calc.derivs=FALSE)` in the `lmer()` commands. This takes care of most optimizer problems because most of them are false alarms.
+    There is also the change to `REML=FALSE`, but this is more a matter of opinion and very rarely matters. I am again following Douglas Bates's recommendation.)
+
+# Appendix
+
+Use preprocessed file as input for Julia. 
+
+```{r}
+write_feather(data.frame(data), "./data.arrow")
+```
+
+
+```{r}
+sessionInfo()
+```
+

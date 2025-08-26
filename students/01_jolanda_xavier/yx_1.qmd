@@ -1,0 +1,216 @@
+---
+title: "RePsychLing Yolanda Xavier's Accent Data"
+author: "Reinhold Kliegl"
+date: today
+date-format: iso
+format: 
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    code-fold: false
+    number-sections: true
+    fig-width: 8
+    fig-height: 6
+    fig-format: svg
+editor_options: 
+  chunk_output_type: console
+engine: julia
+julia: 
+  exeflags: ["--project", "--threads=auto"]
+---
+
+```{julia}
+using Arrow
+using CairoMakie
+using DataFrames
+using MixedModels
+using MixedModelsExtras
+using MixedModelsMakie
+using RegressionFormulae
+using RCall
+using StatsModels
+```
+
+# Data
+
+```{julia}
+accent = DataFrame(Arrow.Table("./data/accent.arrow"));
+describe(accent)
+```
+
+# Contrasts
+
+```{julia}
+contrasts = Dict(
+  :C_V => DummyCoding(; base="baseline.baseline"),
+  :T_S => DummyCoding(; base="more_nasal.nasals"),
+  :O => DummyCoding(; base="narrative"),
+  :C_V_T_S => DummyCoding(; base="baseline.baseline.more_nasal.nasals"),
+  :C_V_O => DummyCoding(; base ="baseline.baseline.narrative"),
+  :T_S_O => DummyCoding(; base="more_nasal.nasals.narrative"),
+  :C_V_T_S_O => DummyCoding(; base="baseline.baseline.more_nasal.nasals.narrative")
+)
+```
+
+# LMMs
+
+## Test of "main"" effects
+
+The three main effects are reduced versions of the original five factors.
+
+### DV: Response
+
+```{julia}
+f1 = @formula Response ~ 1 +  C_V + T_S + O + (1 | Item) + (1 | Rater);
+m1 = fit(MixedModel, f1, accent; contrasts);
+coeftable(m1)
+```
+
+### DV: log_rsp
+
+```{julia}
+f1a = @formula log_rsp ~ 1 +  C_V + T_S + O + (1 | Item) + (1 | Rater);
+m1a = fit(MixedModel, f1a, accent; contrasts);
+coeftable(m1a)
+```
+
+## Test three two-factor interactions
+
+```{julia}
+f2_1 = @formula Response ~ 1 +  C_V_T_S + O + (1 | Item) + (1 | Rater);
+m2_1 = fit(MixedModel, f2_1, accent; contrasts);
+coeftable(m2_1)
+```
+
+```{julia}
+f2_1a = @formula log_rsp ~ 1 + C_V_T_S + O + (1 | Item) + (1 | Rater);
+m2_1a = fit(MixedModel, f2_1a, accent; contrasts);
+coeftable(m2_1a)
+```
+
+```{julia}
+f2_2 = @formula Response ~ 1 +  C_V_O + T_S + (1 | Item) + (1 | Rater);
+m2_2 = fit(MixedModel, f2_2, accent; contrasts);
+coeftable(m2_2)
+```
+
+```{julia}
+f2_2a = @formula log_rsp ~ 1 + C_V_O + T_S + (1 | Item) + (1 | Rater);
+m2_2a = fit(MixedModel, f2_2a, accent; contrasts);
+coeftable(m2_2a)
+```
+
+```{julia}
+f2_3 = @formula Response ~ 1 + T_S_O + C_V + (1 | Item) + (1 | Rater);
+m2_3 = fit(MixedModel, f2_3, accent; contrasts);
+coeftable(m2_3)
+```
+
+```{julia}
+f2_3a = @formula log_rsp ~ 1 + T_S_O + C_V + (1 | Item) + (1 | Rater);
+m2_3a = fit(MixedModel, f2_3a, accent; contrasts);
+coeftable(m2_3a)
+```
+
+## Test of three-factor interactions
+
+```{julia}
+f3 = @formula Response ~ 1 +  C_V_T_S_O +  (1 | Item) + (1 | Rater);
+m3 = fit(MixedModel, f3, accent; contrasts);
+coeftable(m3)
+```
+
+```{julia}
+f3a = @formula log_rsp ~ 1 +  C_V_T_S_O + (1 | Item) + (1 | Rater);
+m3a = fit(MixedModel, f3a, accent; contrasts);
+coeftable(m3a)
+```
+
+# GoF stats
+
+## for `Response`
+
+```{julia}
+table =[];
+push!(table, m1);    # best model according to BIC
+push!(table, m2_3);
+push!(table, m2_2);
+push!(table, m2_1);  # best model according to AIC
+push!(table, m3);
+
+model_data = 
+        gof_summary = let
+        mods = eval.(table)
+        DataFrame(;
+          dof=dof.(mods),
+          deviance=round.(deviance.(mods), digits=0),
+          AIC=round.(aic.(mods),digits=0),
+          BIC=round.(bic.(mods),digits=0)
+        )
+      end
+```
+
+## for `log_rsp`
+
+```{julia}
+table =[];
+push!(table, m1a);   # best model according to BIC
+push!(table, m2_3a);
+push!(table, m2_2a);
+push!(table, m2_1a);  # best model according to AIC
+push!(table, m3a);
+
+model_data = 
+        gof_summary = let
+        mods = eval.(table)
+        DataFrame(;
+          dof=dof.(mods),
+          deviance=round.(deviance.(mods), digits=0),
+          AIC=round.(aic.(mods),digits=0),
+          BIC=round.(bic.(mods),digits=0)
+        )
+      end
+```
+
+LRTs: BIC prefers `m1` and `m1a`. AIC prefers `m2.1` and `m2.1a`; Did you have theoretical expectation for one or two of the higher-order interactions?
+
+## Residual diagnostics
+
+## Q-Q plot: LMM m1
+
+```{julia}
+CairoMakie.activate!(; type="png")
+
+MixedModelsMakie.qqnorm(
+  residuals(m1);
+  qqline=:none,
+  axis=(;
+    xlabel="Standard normal quantiles",
+    ylabel="Quantiles of the residuals from model m1",
+  ),
+)
+```
+
+## Q-Q plot: LMM m1a
+
+```{julia}
+CairoMakie.activate!(; type="png")
+
+MixedModelsMakie.qqnorm(
+  residuals(m1a);
+  qqline=:none,
+  axis=(;
+    xlabel="Standard normal quantiles",
+    ylabel="Quantiles of the residuals from model m1",
+  ),
+)
+```
+
+As expected, LMM `m1a` with `log_rsp` looks a bit better than LMM `m1` with `Response`. I don't think the difference has any bearing on the inferences.
+
+# Version
+
+```{julia}
+versioninfo()
+```

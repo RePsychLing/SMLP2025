@@ -1,0 +1,215 @@
+---
+title: "RePsychLing Ioannis Iliopoulos's 'P600_across_L1_and_L2'"
+author: "Reinhold Kliegl"
+date: today
+date-format: iso
+format: 
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    code-fold: false
+    number-sections: true
+    fig-width: 8
+    fig-height: 6
+    fig-format: svg
+editor_options: 
+  chunk_output_type: console
+---
+
+# Introduction
+
+Here I analyze the data I collected from a within-subject ERP study on a grammatical violation.  
+The same individuals were tested in the same grammatical violation in their L1 (German) and their L2 (English).  
+Our aim is to identify:  
+(a) at the group-level whether the expected P600 is elicited in both L1 and L2,  
+(b) whether third factors modulate the P600, and  
+(c) whether individual variability is consistent across L1 and L2.  
+
+Here I do (a) and (b). For (c), I tried extracting the random slopes by participant and then doing a correlation analysis — but maybe there is a more efficient way to do this.
+
+RK: I am not a friend of correlating conditional modes extracted from LMM fits and using inferential statistics, because conditional modes by definition are not independent. Perhaps estimate effects within languages and then a correlation parameters for the effects?
+
+# Load required libraries
+
+```{r}
+library(arrow)
+library(easystats)
+library(tidyverse)
+library(lme4)
+library(summarytools)
+```
+
+# Read Data
+The data include the following varibles:
+Subject : Subject/Participant Number
+Condition:  Ungrammatical - Grammatical
+Item_Nr: Item Number
+Language: English (EN) - German (DE)
+value: Amplitude (our dependent variable)
+OQPT_Score: L2 prodificiency Score 
+WM_Score : Working Memory Score 
+VF_Score : Verbal Fluency Score 
+
+# Preprocessing
+
+RK: 
+
++ You should take care of missing values during preprocessing, that is use the same data across different LMMs; I leave `WM_score` out of the analyses and drop rows with missing in other relevant variables.
++ Do you want to use z-score covariates (or only mean-centered ones)?
++ There is a bit of problematic imnplication for estimates of their interaction
+with `contr.sum(2) / -2` and `contr.sum(2) / -2`. 
+
+```{r}
+dat <- 
+  read.csv("./data/merged_P600_data.csv") |> 
+  mutate(
+    Subj = as_factor(paste0("S", str_pad(subject, width = 3, side = "left", pad = "0"))),
+    Item = as_factor(paste0("I", str_pad(item_n, width = 3, side = "left", pad = "0"))),
+    Language = factor(language),
+    Condition = factor(condition),
+    l2 = scale(as.numeric(OQPT_Score)),
+    vf = scale(as.numeric(VF_Score))
+  ) |> 
+  select(Subj, Item, Language, Condition, l2, vf, value) |> 
+  drop_na()
+
+#stview(dfSummary(dat))
+
+contrasts(dat$Language) <- contr.sum(2) 
+contrasts(dat$Condition) <- (-1)*contr.sum(2) 
+```
+
+```{r}
+dat <- 
+  read.csv("./data/merged_P600_data.csv") |> 
+  mutate(
+    Subj = as_factor(paste0("S", str_pad(subject, width = 3, side = "left", pad = "0"))),
+    Item = as_factor(paste0("I", str_pad(item_n, width = 3, side = "left", pad = "0"))),
+    Language = factor(language),
+    Condition = factor(condition),
+    l2 = scale(as.numeric(OQPT_Score)),
+    vf = scale(as.numeric(VF_Score))
+  ) |> 
+  select(Subj, Item, Language, Condition, l2, vf, value) |> 
+  drop_na()
+
+#stview(dfSummary(dat))
+
+contrasts(dat$Language) <- contr.sum(2) 
+contrasts(dat$Condition) <- (-1)*contr.sum(2) 
+```
+
+Or use a subset with WM score.
+
+```{r}
+#| eval: false
+dat_wm <- 
+  read.csv("./data/merged_P600_data.csv") |> 
+  mutate(
+    Subj = as_factor(paste0("S", str_pad(subject, width = 3, side = "left", pad = "0"))),
+    Item = as_factor(paste0("I", str_pad(item_n, width = 3, side = "left", pad = "0"))),
+    Language = factor(language),
+    Condition = factor(condition),
+    l2 = scale(as.numeric(OQPT_Score)),
+    vf = scale(as.numeric(VF_Score)),
+    wm = scale(as.numeric(WM_Score))
+  ) |> 
+  select(Subj, Item, Language, Condition, l2, vf, wm, value) |> 
+  drop_na()
+
+stview(dfSummary(dat_wm))
+
+contrasts(dat_wm$Language) <- contr.sum(2) 
+contrasts(dat_wm$Condition) <- (-1)*contr.sum(2) 
+```
+
+
+# Main LMMs
+
+```{r}
+system.time(
+m1i <- lmer(
+  value ~ 1 + Language * Condition + 
+         (1 + Condition * Language | Subj) +  (1 + Condition | Item),
+  data = dat, REML=FALSE, 
+  control=lmerControl(calc.derivs=FALSE))
+)
+
+system.time(
+m1i_vf_l2 <-  lmer(
+  value ~ 1 + (vf+l2) * Language * Condition + 
+         (1 + Condition * Language | Subj) +  (1 + Condition | Item),
+  data = dat, REML=FALSE, 
+  control=lmerControl(calc.derivs=FALSE))
+)
+
+anova(m1i, m1i_vf_l2)
+
+round(summary(m1i)$coef, 3)
+round(summary(m1i_vf_l2)$coef, 3)
+```
+
+No evidence for the relevance of `vf` and `proficiency`.
+
+# Estimating condition effects within DE and within EN
+
+```{r}
+system.time(
+m2i <- lmer(
+  value ~ 1 + Language / Condition + 
+         (0 + Language / Condition  | Subj) +  (1 + Condition | Item),
+  data = dat, REML=FALSE, 
+  control=lmerControl(calc.derivs=FALSE))
+)
+
+VarCorr(m2i)
+```
+
+Lots of positive correlations. 
+
++ Means of P600 between DE and EN correlate 0.537
++ Condition effects of DE and EN correlate 0.291
+
+# Save the current dataframe
+
+This file is used as input in Julia MixedModels.jl script **ii_1.qmd**
+
+```{r}
+write_feather(data.frame(dat), "./data/P600.arrow")
+```
+
+# Main LMMs with WM-score covariate
+
+```{r}
+system.time(
+m3i <- lmer(
+  value ~ 1 + Language * Condition + 
+         (1 + Condition * Language | Subj) +  (1  | Item),
+  data = dat_wm, REML=FALSE, 
+  control=lmerControl(calc.derivs=FALSE))
+)
+
+system.time(
+m3i_wm <-  lmer(
+  value ~ 1 + wm * Language * Condition + 
+         (1 + Condition * Language | Subj) +  (1 | Item),
+  data = dat_wm, REML=FALSE, 
+  control=lmerControl(calc.derivs=FALSE))
+)
+
+anova(m3i, m3i_wm)
+
+round(summary(m3i)$coef, 3)
+round(summary(m3i_wm)$coef, 3)
+```
+
++ Removed VC Item-related Condition that generated: " boundary (singular) fit: see help('isSingular')"
++ No evidence for the relevance of `wm`.
+
+# Appendix
+
+```{r}
+sessionInfo()
+```
+

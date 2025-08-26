@@ -1,0 +1,122 @@
+---
+title: "smlp_script"
+author: "Thanh Lan Truong"
+date: "2025-07-24"
+output: html_document
+---
+
+
+```{r DELETEALL}
+rm(list = ls())
+```
+
+```{r}
+# install.packages("lme4")
+# install.packages("lattice")
+# install.packages("lmerTest")
+```
+
+
+```{r, include= FALSE}
+library(lme4)
+library(lattice)
+library(lmerTest)
+library(here)
+library(dplyr)
+```
+
+# This study
+In this study, monocultural German and bicultural Viet-German listeners were asked to identify the heritage of the speakers who were either monocultural German or Viet-German speakers. In addition, after each stimuli, participants were asked to rate how certain they were with their responses. 
+
+Variables that is needed
+- correctness (correct vs. incorrect)
+- speaker group (monocultural German vs. bicultural Viet-German)
+- listener group (monocultural German vs. bicultural Viet-German)
+- GEQ German
+- GEQ Viet
+- MISS 
+
+The last three were self ratings with regard to participants' cultural identity.
+General Ethnicity Questionnaire (GEQ, Tsai et al., 2000) – This questionnaire assesses bilinguals’ individual cultural identity.
+Multicultural Identity Styles Scale (MISS, Ward et al., 2018) – This questionnaire examines the relationship between bilinguals’ cultural identities.
+
+Research questions:
+- Can listeners identify the cultural heritage of speakers based on speech alone? 
+- Is identification more accurately when the heritage of both listeners and speakers match? 
+- Is accuracy modulated by the listener's certainty?
+
+(I'm still thinking on how to incorporate the GEQ and MISS values)
+
+# Set directory
+```{r Directory}
+here("1_data") 
+```
+
+```{r}
+data_0 <- read.csv(here("1_data", "subset_smlp2025.csv"), header = TRUE, sep = ",")
+```
+
+# Converting
+```{r}
+data_1 <- data_0
+data_1$correct <- as.numeric(data_1$correct)
+data_1$response_certainty <- as.numeric(data_1$response_certainty)
+data_1$geq_ger_each <- as.numeric(data_1$geq_ger_each)
+data_1$geq_viet_each <- as.numeric(data_1$geq_viet_each)
+data_1$MISS_hybr_mean <- as.numeric(data_1$MISS_hybr_mean)
+data_1$MISS_alt_mean <- as.numeric(data_1$MISS_alt_mean)
+
+data_1$subject <- as.factor(data_1$subject)
+data_1$speaker_group <- as.factor(data_1$speaker_group)
+data_1$listener_group <- as.factor(data_1$listener_group)
+```
+
+```{r}
+data_1.5 <- data_1 %>% 
+  mutate(across(everything(), ~replace_na(., 0)))
+```
+
+```{r}
+
+round_up <- function(x, digits = 2) {
+  mult <- 10^digits
+  ceiling(x * mult) / mult
+}
+
+data_1.5 <- data_1.5 %>% 
+  mutate(MISS_hybr_mean = round_up(MISS_hybr_mean, 2)) %>% 
+  mutate(MISS_alt_mean = round_up(MISS_alt_mean, 2))
+
+```
+
+# Run Model
+```{r Categorize}
+data_2 <- data_1.5
+
+data_2$speaker_group_s = ifelse(data_2$speaker_group=="bicultural viet-german", 0.5, -0.5)
+data_2$listener_group_s = ifelse(data_2$listener_group=="monocultural german", 0.5, -0.5)
+```
+
+## GLMER
+I'm still unsure on how to model this... 
+The thing I'm unsure about is that my monocultural German speakers filled in the GEQ for German ethnicity while the bicultural speakers filled in both for German and Vietnamese ethnicity. Basically, I have missing values then for the German speakers (see table). Does this mater? 
+
+```{r ModelOverall, results='markup'}
+model_1 = glmer(correct ~ speaker_group_s*listener_group_s +
+                        response_certainty + geq_ger_each + geq_viet_each + MISS_alt_mean + MISS_hybr_mean +
+               (1+speaker_group_s+response_certainty|subject)+
+               (1+speaker_group_s+response_certainty|item),
+             data=data_2,  family="binomial", control=glmerControl(calc.deriv=FALSE)) 
+summary(model_1)
+```
+
+Another question that comes to mind is how include certainty as the factor? I have trouble understanding three-way interaction. Or does model 1 already answer the question for "Is accuracy modulated by the listener's certainty?"
+
+```{r ModelOverall, results='markup'}
+model_2 = glmer(correct ~ speaker_group_s*listener_group_s * response_certainty +
+               (1+speaker_group_s+response_certainty|subject)+
+               (1+speaker_group_s+response_certainty|item),
+             data=data_2,  family="binomial", control=glmerControl(calc.deriv=FALSE)) 
+summary(model_2)
+```
+

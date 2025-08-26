@@ -1,0 +1,233 @@
+BEGIN:VCALENDAR
+METHOD:REQUEST
+PRODID:Microsoft Exchange Server 2010
+VERSION:2.0
+BEGIN:VTIMEZONE
+TZID:Eastern Standard Time
+BEGIN:STANDARD
+DTSTART:16010101T020000
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+RRULE:FREQ=YEARLY;INTERVAL=1;BYDAY=1SU;BYMONTH=11
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:16010101T020000
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+RRULE:FREQ=YEARLY;INTERVAL=1;BYDAY=2SU;BYMONTH=3
+END:DAYLIGHT
+END:VTIMEZONE
+BEGIN:VEVENT
+ORGANIZER;CN="Lang, Justin (PHAC/ASPC)":mailto:justin.lang@phac-aspc.gc.ca
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=reinhold.k
+ liegl@uni-potsdam.de:mailto:reinhold.kliegl@uni-potsdam.de
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=maurosanta
+ nder@hotmail.com:mailto:maurosantander@hotmail.com
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=antonio.ma
+ rtinko@kif.hr:mailto:antonio.martinko@kif.hr
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=brendan.ok
+ eefe@ul.ie:mailto:brendan.okeefe@ul.ie
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=clemens.dr
+ enowatz@ph-ooe.at:mailto:clemens.drenowatz@ph-ooe.at
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=jbsayavera
+ @upo.es:mailto:jbsayavera@upo.es
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=SHAWNDA.MO
+ RRISON@FSP.UNI-LJ.SI:mailto:SHAWNDA.MORRISON@FSP.UNI-LJ.SI
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=anegaya@gm
+ ail.com:mailto:anegaya@gmail.com
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=ortegaf@ug
+ r.es:mailto:ortegaf@ugr.es
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=lbsardinha
+ 55@gmail.com:mailto:lbsardinha55@gmail.com
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=amarques@f
+ mh.ulisboa.pt:mailto:amarques@fmh.ulisboa.pt
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=robin640@h
+ otmail.com:mailto:robin640@hotmail.com
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=jeremy.van
+ helst@eren.smbh.univ-paris13.fr:mailto:jeremy.vanhelst@eren.smbh.univ-pari
+ s13.fr
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=jovisoto@g
+ mail.com:mailto:jovisoto@gmail.com
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=miguel.per
+ alta14@gmail.com:mailto:miguel.peralta14@gmail.com
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=maroje.sor
+ ic@kif.unizg.hr:mailto:maroje.soric@kif.unizg.hr
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=ryan.mcgra
+ th@ndsu.edu:mailto:ryan.mcgrath@ndsu.edu
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=diegoaugus
+ toss@yahoo.com.br:mailto:diegoaugustoss@yahoo.com.br
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=ivan.muell
+ er@unibas.ch:mailto:ivan.mueller@unibas.ch
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=claudia.ni
+ essner@kit.edu:mailto:claudia.niessner@kit.edu
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=jmota@fade
+ .up.pt:mailto:jmota@fade.up.pt
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=bojan.lesk
+ osek@fsp.uni-lj.si:mailto:bojan.leskosek@fsp.uni-lj.si
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=cesar.agos
+ tinis@ku.lt:mailto:cesar.agostinis@ku.lt
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=anpizarro@
+ fade.up.pt:mailto:anpizarro@fade.up.pt
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=ruizj@ugr.
+ es:mailto:ruizj@ugr.es
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=cadenas@ug
+ r.es:mailto:cadenas@ugr.es
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=kidokoro@n
+ ittai.ac.jp:mailto:kidokoro@nittai.ac.jp
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=tmwase-vum
+ a@unima.ac.mw:mailto:tmwase-vuma@unima.ac.mw
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=susana.and
+ rade@ucuenca.edu.ec:mailto:susana.andrade@ucuenca.edu.ec
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=stuart.fai
+ rclough@edgehill.ac.uk:mailto:stuart.fairclough@edgehill.ac.uk
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=snqweniso@
+ ufh.ac.za:mailto:snqweniso@ufh.ac.za
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=batonjames
+ 19@gmail.com:mailto:batonjames19@gmail.com
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=grant.tomk
+ inson@unisa.edu.au:mailto:grant.tomkinson@unisa.edu.au
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=laura.bast
+ erfield@ncl.ac.uk:mailto:laura.basterfield@ncl.ac.uk
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=docliuyang
+ @hotmail.com:mailto:docliuyang@hotmail.com
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=kathryn.we
+ ston@strath.ac.uk:mailto:kathryn.weston@strath.ac.uk
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=aidan.grib
+ bon@statcan.gc.ca:mailto:aidan.gribbon@statcan.gc.ca
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=attilio.ca
+ rraro@unibz.it:mailto:attilio.carraro@unibz.it
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=mariaherra
+ darobles@gmail.com:mailto:mariaherradarobles@gmail.com
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=julio.mell
+ o@pucv.cl:mailto:julio.mello@pucv.cl
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=david.mate
+ lot@univ-ubs.fr:mailto:david.matelot@univ-ubs.fr
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=JReed@otta
+ waheart.ca:mailto:JReed@ottawaheart.ca
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=lukas.rubi
+ n@tul.cz:mailto:lukas.rubin@tul.cz
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=csanyi.tam
+ as@tf.hu:mailto:csanyi.tamas@tf.hu
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=jordan.smi
+ th@newcastle.edu.au:mailto:jordan.smith@newcastle.edu.au
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=jribeiro@f
+ ade.up.pt:mailto:jribeiro@fade.up.pt
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=smchoi@um.
+ edu.mo:mailto:smchoi@um.edu.mo
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=taru.manya
+ nga@unbc.ca:mailto:taru.manyanga@unbc.ca
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=klaurso@il
+ stu.edu:mailto:klaurso@ilstu.edu
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=mareike.vo
+ igt.1@uni-potsdam.de:mailto:mareike.voigt.1@uni-potsdam.de
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=john.j.rei
+ lly@strath.ac.uk:mailto:john.j.reilly@strath.ac.uk
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=lvanderloo
+ @participaction.com:mailto:lvanderloo@participaction.com
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=jose.castr
+ o@uca.es:mailto:jose.castro@uca.es
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=lovro.stef
+ an1510@gmail.com:mailto:lovro.stefan1510@gmail.com
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=mtremblay@
+ cheo.on.ca:mailto:mtremblay@cheo.on.ca
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=triciazaka
+ ria@phecanada.ca:mailto:triciazakaria@phecanada.ca
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=sitong.che
+ n@live.vu.edu.au:mailto:sitong.chen@live.vu.edu.au
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=sarabesal@
+ fsp.uni-lj.si:mailto:sarabesal@fsp.uni-lj.si
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=laura.p.jo
+ ensuu@jyu.fi:mailto:laura.p.joensuu@jyu.fi
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=laurent.be
+ ghin@chu-lille.fr:mailto:laurent.beghin@chu-lille.fr
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=jjgil@uloy
+ ola.es:mailto:jjgil@uloyola.es
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=wachira.lu
+ cy@ku.ac.ke:mailto:wachira.lucy@ku.ac.ke
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=levi.frehl
+ ich@ucalgary.ca:mailto:levi.frehlich@ucalgary.ca
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=faigenba@t
+ cnj.edu:mailto:faigenba@tcnj.edu
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=Mhairi.Mac
+ Donald@edgehill.ac.uk:mailto:Mhairi.MacDonald@edgehill.ac.uk
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN="Prince War
+ e, Stephanie (PHAC/ASPC)":mailto:stephanie.prince.ware@phac-aspc.gc.ca
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=eunyoung.l
+ ee@queensu.ca:mailto:eunyoung.lee@queensu.ca
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=rafaela.sa
+ nto@ku.lt:mailto:rafaela.santo@ku.lt
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=thayse_nat
+ acha@hotmail.com:mailto:thayse_natacha@hotmail.com
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=jennifer.s
+ ervais@statcan.gc.ca:mailto:jennifer.servais@statcan.gc.ca
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=taylor@cuc
+ s.udg.mx:mailto:taylor@cucs.udg.mx
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=ajexhsu@gm
+ ail.com:mailto:ajexhsu@gmail.com
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=willumsenj
+ @who.int:mailto:willumsenj@who.int
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=tylerr@edg
+ ehill.ac.uk:mailto:tylerr@edgehill.ac.uk
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=lillianmug
+ ie@gmail.com:mailto:lillianmugie@gmail.com
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=danilorpsi
+ lva@gmail.com:mailto:danilorpsilva@gmail.com
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=nandi.joub
+ ert@unibas.ch:mailto:nandi.joubert@unibas.ch
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=kagunda.st
+ anley@ku.ac.ke:mailto:kagunda.stanley@ku.ac.ke
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=gerardo.fe
+ rnandez@viewmind.com:mailto:gerardo.fernandez@viewmind.com
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=githanga.j
+ uliah@ku.ac.ke:mailto:githanga.juliah@ku.ac.ke
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=antonino.m
+ ule@unibz.it:mailto:antonino.mule@unibz.it
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=kzhang@che
+ o.on.ca:mailto:kzhang@cheo.on.ca
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=pontus.hen
+ riksson@liu.se:mailto:pontus.henriksson@liu.se
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=johannes.j
+ aunig@uni-graz.at:mailto:johannes.jaunig@uni-graz.at
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=jarek.maes
+ tu@ut.ee:mailto:jarek.maestu@ut.ee
+DESCRIPTION;LANGUAGE=en-US:Meeting agenda to follow.\n\n\n\nZoom link\n\nTo
+ pic: Global Youth Fitness Consortium AGM3\nJoin Zoom Meeting\nhttps://uni-
+ lj-si.zoom.us/j/99064749945?pwd=aFlog4mrtGTBwmtwgucb1syqTWcBrR.1\n\nMeetin
+ g ID: 990 6474 9945\nPasscode: 782424\n\nJoin instructions\nhttps://uni-lj
+ -si.zoom.us/meetings/99064749945/invitations?signature=TuAiWKKRGUc-QJSkvwM
+ hh6xnDq6wTuRu9SQCUg0JeAo\n\n---\n\n
+UID:040000008200E00074C5B7101A82E00800000000F04B1855A40BDC01000000000000000
+ 010000000E3F49F697445674CA18A754B5382E076
+SUMMARY;LANGUAGE=en-US:Global Youth Fitness Consortium Meeting
+DTSTART;TZID=Eastern Standard Time:20250903T070000
+DTEND;TZID=Eastern Standard Time:20250903T093000
+CLASS:PUBLIC
+PRIORITY:5
+DTSTAMP:20250812T201920Z
+TRANSP:OPAQUE
+STATUS:CONFIRMED
+SEQUENCE:0
+LOCATION;LANGUAGE=en-US:Zoom
+X-MICROSOFT-CDO-APPT-SEQUENCE:0
+X-MICROSOFT-CDO-OWNERAPPTID:1382844393
+X-MICROSOFT-CDO-BUSYSTATUS:TENTATIVE
+X-MICROSOFT-CDO-INTENDEDSTATUS:BUSY
+X-MICROSOFT-CDO-ALLDAYEVENT:FALSE
+X-MICROSOFT-CDO-IMPORTANCE:1
+X-MICROSOFT-CDO-INSTTYPE:0
+X-MICROSOFT-SKYPETEAMSMEETINGURL:
+X-MICROSOFT-SCHEDULINGSERVICEUPDATEURL:
+X-MICROSOFT-SKYPETEAMSPROPERTIES:
+X-MICROSOFT-DONOTFORWARDMEETING:FALSE
+X-MICROSOFT-DISALLOW-COUNTER:FALSE
+X-MICROSOFT-REQUESTEDATTENDANCEMODE:DEFAULT
+X-MICROSOFT-ISRESPONSEREQUESTED:TRUE
+X-MICROSOFT-LOCATIONS:[ { "DisplayName" : "Zoom"\, "LocationAnnotation" : "
+ "\, "LocationSource" : 0\, "Unresolved" : true\, "LocationUri" : "" } ]
+BEGIN:VALARM
+DESCRIPTION:REMINDER
+TRIGGER;RELATED=START:-PT15M
+ACTION:DISPLAY
+END:VALARM
+END:VEVENT
+END:VCALENDAR

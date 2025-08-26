@@ -1,0 +1,147 @@
+---
+title: "P600_across_L1_and_L2"
+author: "Ioannis Iliopoulos"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+## Introduction
+
+Here I analyze the data I collected from a within-subject ERP study on a grammatical violation.  
+The same individuals were tested in the same grammatical violation in their L1 (German) and their L2 (English).  
+Our aim is to identify:  
+(a) at the group-level whether the expected P600 is elicited in both L1 and L2,  
+(b) whether third factors modulate the P600, and  
+(c) whether individual variability is consistent across L1 and L2.  
+
+Here I do (a) and (b). For (c), I tried extracting the random slopes by participant and then doing a correlation analysis — but maybe there is a more efficient way to do this.
+
+## Load Required Libraries
+
+```{r}
+library(lme4)
+library(lmerTest)  # extends lme4 with p-values
+library(Matrix)
+library(ggplot2)
+library(sjPlot)
+library(sjmisc)
+library(sjlabelled)
+library(dplyr)
+library(tidyr)
+library(RColorBrewer)
+```
+
+## 1. Read Data
+The data include the following varibles:
+Subject : Subject/Participant Number
+Condition: Grammatical - Ungrammatical
+Item_Nr: Item Number
+Language: German (DE) - English (EN)
+value: Amplitude (our dependent variable)
+OQPT_Score: L2 prodificiency Score 
+WM_Score : Working Memory Score 
+VF_Score : Verbal Fluency Score 
+
+```{r}
+merged_df <- read.csv("merged_P600_data.csv")
+```
+
+## 2. Prepare Variables
+
+```{r}
+merged_df <- merged_df %>%
+  mutate(
+    language = factor(language),
+    condition = factor(condition),
+    WM_Score = scale(as.numeric(WM_Score)),
+    proficiency_centered = scale(as.numeric(OQPT_Score)),
+    VF_Score = scale(as.numeric(VF_Score))
+  )
+
+contrasts(merged_df$language) <- contr.sum(2) / -2
+contrasts(merged_df$condition) <- contr.sum(2) / -2
+```
+
+## 3. Main Mixed Models
+
+```{r}
+m1i <- lmer(
+  value ~ language * condition + 
+    (1 + condition + language | subject) + 
+    (1 + condition | item_n),
+  data = merged_df
+)
+
+m1iWM <- lmer(
+  value ~ WM_Score * language * condition + 
+    (1 | subject) + 
+    (1 | item_n),
+  data = merged_df
+)
+
+round(summary(m1i)$coef, 3)
+round(summary(m1iWM)$coef, 3)
+```
+
+## 4. Subset L1 (German)
+
+```{r}
+merged_df_DE <- merged_df %>%
+  filter(language == "DE") %>%
+  droplevels()
+
+m1iWM_DE <- lmer(
+  value ~ WM_Score * condition + 
+    (1 + condition | subject) + 
+    (1 | item_n),
+  data = merged_df_DE
+)
+
+round(summary(m1iWM_DE)$coef, 3)
+```
+
+## 5. Subset L2 (English)
+
+```{r}
+merged_df_EN <- merged_df %>%
+  filter(language == "EN") %>%
+  droplevels()
+
+levels(merged_df_EN$condition) <- c("grammatical", "ungrammatical")
+contrasts(merged_df_EN$condition) <- contr.sum(2) / -2
+```
+
+## 6. L2 Predictors
+
+```{r}
+# Proficiency model
+m1i_prof <- lmer(
+  value ~ proficiency_centered * condition +
+    (1 | subject) +
+    (1 + condition | item_n),
+  data = merged_df_EN
+)
+
+# Verbal Fluency model
+m1i_VF <- lmer(
+  value ~ VF_Score * condition +
+    (1 | subject) +
+    (1 | item_n),
+  data = merged_df_EN
+)
+
+# WM model
+m1i_WM <- lmer(
+  value ~ WM_Score * condition +
+    (1 | subject) +
+    (1 + condition | item_n),
+  data = merged_df_EN
+)
+
+round(summary(m1i_prof)$coef, 3)
+round(summary(m1i_VF)$coef, 3)
+round(summary(m1i_WM)$coef, 3)
+```
