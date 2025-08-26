@@ -1,0 +1,418 @@
+---
+title: "RePsychLing Emma James's Memory Integration Data"
+author: "Reinhold Kliegl"
+date: today
+date-format: iso
+format: 
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    code-fold: false
+    number-sections: true
+    fig-width: 8
+    fig-height: 6
+    fig-format: svg
+editor_options: 
+  chunk_output_type: console
+engine: julia
+julia: 
+  exeflags: ["--project", "--threads=auto"]
+---
+
+
+# Setup
+
+## Packages
+
+```{julia}
+using Arrow
+using CairoMakie
+using DataFrames
+using MixedModels
+using MixedModelsExtras
+using MixedModelsMakie
+using RegressionFormulae
+using RCall
+using StatsModels
+```
+
+```{julia}
+#@isdefined(contrasts) || const contrasts = Dict{Symbol,Any}()
+#@isdefined(nAGQ) || const nAGQ = 1
+#@isdefined(progress) || const progress = false
+```
+
+## Data
+
+```{julia}
+dat = DataFrame(Arrow.Table("./data/processed/memory_integration.arrow"));
+
+dat.acc = Bool.(dat.acc)
+describe(dat);
+
+# filter incorrect responses for rt analysis
+dat_rt = dropmissing(dat); 
+```
+
+# GLMMs
+
+## Contrasts
+
+```{julia}
+contrasts = Dict(
+  :Group => SeqDiffCoding(; levels=["child", "adult"]),
+  :Test  => SeqDiffCoding(; levels=["immediate", "delayed"]),
+  :Type  => SeqDiffCoding(; levels=["BC", "DC"])
+)
+```
+
+## Maximal model 
+
++ SINGULAR FIT  
+  
+```{julia}
+m0 =
+  let d = dat,
+      ds = Bernoulli(),
+      f = @formula acc ~ 1 + Group*Test*Type + (1 + Test*Type | Subj) + (1 + Group*Test*Type | Item);
+     fit(MixedModel, f, d, ds; contrasts, nAGQ=1, progress=false)
+end
+
+saveoptsum("../output/models/m0.json", m0);
+```
+
+Time: 0:02:36 (49.23 ms/it)
+
+```{julia}
+issingular(m0) # false
+MixedModels.PCA(m0) # ... but overparameterized in Item
+VarCorr(m0)
+```
+
+Interesting. No clear problem visible. 
+
+## Simplified model 1 
+
++ remove random effect correlations for items - SINGULAR FIT
+
+```{julia}
+m1 =
+  let d = dat,
+      ds = Bernoulli(),
+      f = @formula acc ~ 1 + Group*Test*Type + (1 + Test*Type | Subj) + 
+                zerocorr(1 + Group*Test*Type | Item);
+     fit(MixedModel, f, d, ds; contrasts, nAGQ=1, progress=false)
+end
+
+saveoptsum("../output/models/m1.json", m1);
+```
+
+Time: 0:01:59 (69.21 ms/it)
+
+```{julia}
+issingular(m1) # true
+MixedModels.PCA(m1) # ... and overparameterized in Item
+VarCorr(m1)
+```
+
++ No reliable VC for Group x Type
+
+## RK's simplified model 2_rk
+
+```{julia}
+m2_rk =
+  let d = dat,
+      ds = Bernoulli(),
+      f = @formula acc ~ 1 + Group*Test*Type + (1 + Test*Type | Subj) + 
+                zerocorr(1 + Test*Type | Item);
+     fit(MixedModel, f, d, ds; contrasts, nAGQ=1, progress=false)
+end
+
+saveoptsum("../output/models/m2_rk.json", m2_rk);
+```
+
+```{julia}
+issingular(m2_rk) # false
+MixedModels.PCA(m2_rk) # ok
+VarCorr(m2_rk)
+
+lrtest(m2_rk, m1, m0)
+```
+
+Looking good for GLMM `m2_rk`!
+
+## RK's parsimonious model 3_rk
+
++ estimate CPs again
+
+```{julia}
+m3_rk =
+  let d = dat,
+      ds = Bernoulli(),
+      f = @formula acc ~ 1 + Group*Test*Type + (1 + Test*Type | Subj) + 
+                        (1 + Test*Type | Item);
+     fit(MixedModel, f, d, ds; contrasts, nAGQ=1, progress=false)
+end
+
+saveoptsum("../output/models/m3_rk.json", m3_rk);
+```
+
+```{julia}
+issingular(m3_rk) # false
+MixedModels.PCA(m3_rk) # ok
+VarCorr(m3_rk)
+
+lrtest(m2_rk, m3_rk)
+```
+
++ Item-related CPs are not reliable. Stay with GLMM `m2_rk`.
++ GLMM `m2_rk` uses fewer parameters than GLMM `m3` and is preferred by AIC and BIC
+
+## EJ's simplified model 2 
+
++ Simplify item random effects - remove three-way interaction - SINGULAR FIT
+
+```{julia}
+m2 =
+  let d = dat,
+      ds = Bernoulli(),
+      f = @formula acc ~ 1 + Group*Test*Type + (1 + Test*Type | Subj) + 
+                zerocorr(1 + Group*Test + Group*Type + Test*Type | Item);
+     fit(MixedModel, f, d, ds; contrasts, nAGQ=1, progress=false)
+end
+
+saveoptsum("../output/models/m2.json", m2);
+```
+
+Time: 0:01:30 (49.83 ms/it)
+
+```{julia}
+issingular(m2) # true
+MixedModels.PCA(m2) # ... and overparameterized in Item
+VarCorr(m2)
+```
+
++ Still no reliable VC for Group x Type
+
+## EJ's simplified model 3 
+
++ Simplify item random effects - remove 2-way group*pair_type (0 variance)
+
+```{julia}
+m3 =
+  let d = dat,
+      ds = Bernoulli(),
+      f = @formula acc ~ 1 + Group*Test*Type + (1 + Test*Type | Subj) + 
+                zerocorr(1 + Group*Test + Test*Type | Item);
+     fit(MixedModel, f, d, ds; contrasts, nAGQ=1, progress=false)
+end
+
+saveoptsum("../output/models/m3.json", m3);
+```
+
+Time: 0:01:20 (43.45 ms/it)
+
+```{julia}
+issingular(m3) # false
+MixedModels.PCA(m3) # ok
+VarCorr(m3)
+```
+
+## GoF stats
+
+### LRTs
+
+```{julia}
+lrtest(m3, m2, m1, m0)
+```
+
+```
+Likelihood-ratio test: 4 models fitted on 10746 observations
+──────────────────────────────────────────────────────────
+     DOF  ΔDOF      LogLik    Deviance    Chisq  p(>Chisq)
+──────────────────────────────────────────────────────────
+[1]   24        -5381.8933  10763.7866                    
+[2]   25     1  -5381.8932  10763.7864   0.0001     0.9902
+[3]   26     1  -5381.4619  10762.9238   0.8627     0.3530
+[4]   54    28  -5363.6841  10727.3681  35.5556     0.1543
+──────────────────────────────────────────────────────────
+```
+
+### AIC, BIC ...
+
+Include RK's selected LMM
+
+```{julia}
+
+table =[];
+push!(table, m2_rk); 
+push!(table, m3); 
+push!(table, m2);
+push!(table, m1);
+push!(table, m0);
+
+model_data = 
+        gof_summary = let
+        mods = eval.(table)
+        DataFrame(;
+          dof=dof.(mods),
+          deviance=round.(deviance.(mods), digits=0),
+          AIC=round.(aic.(mods),digits=0),
+          BIC=round.(bic.(mods),digits=0)
+        )
+      end
+```
+
+
+## Residual diagnostics:  Q-Q plot: 
+
+```{julia}
+CairoMakie.activate!(; type="png")
+
+MixedModelsMakie.qqnorm(
+  residuals(m2_rk);
+  qqline=:none,
+  axis=(;
+    xlabel="Standard normal quantiles",
+    ylabel="Quantiles of the residuals from model m1",
+  ),
+)
+```
+
+# RT
+
+## Model fitting
+
+RK's selection:
+
+1. max (`all_RT_0`)
+2. zerocorr for item (`all_RT_1`)
+3. remove small VCs -- keep only Test (`all_RT_2_rk`)
+4. expand CPs for remaining VCs (`all_RT_3_rk`)
+
+###  Maximal model 
+
+```{julia}
+m0_rt =
+  let d = dat_rt,
+      f = @formula log(rt) ~ 1 + Group*Test*Type + (1 + Test*Type | Subj) +
+                            (1 + Group*Test*Type | Item);
+     fit(MixedModel, f, d; contrasts, progress=false)
+end
+
+issingular(m0_rt)      # true
+MixedModels.PCA(m0_rt) # not ok
+VarCorr(m0_rt)         # no obvious problems
+```
+
+Time: 0:00:04 ( 2.80 ms/it)
+
+No obvious problems, but very small item-related VC for `Group` 
+
+### Parsimonious model 1
+
++ remove item-related VC for `Group` 
+
+```{julia}
+m1_rt =
+ let d = dat_rt,
+      f = @formula log(rt) ~ 1 + Group*Test*Type + (1 + Test*Type | Subj) + 
+                            (1 + Test*Type | Item);
+     fit(MixedModel, f, d; contrasts, progress=false)
+end
+
+issingular(m1_rt)       # true
+MixedModels.PCA(m1_rt)  # ok
+VarCorr(m1_rt)          # several zero-VCs
+lrtest(m1_rt, m0_rt)
+```
+
++ still overparameterized, but no loss of information
++ check item-related VC for Test x Type interaction
+
+### Parsimonious model 2
+
++ remove `Test x Type` from `Item`-RES
+
+```{julia}
+m2_rt = 
+  let d = dat_rt,
+      f = @formula log(rt) ~ 1 + Group*Test*Type + (1 + Test*Type | Subj) + 
+                            (1 + Test+Type | Item);
+     fit(MixedModel, f, d; contrasts, progress=false)
+end
+
+issingular(m2_rt)       # false
+MixedModels.PCA(m2_rt)  # ok, well...
+VarCorr(m2_rt)          # ok
+lrtest(m2_rt, m1_rt, m0_rt)
+```
+
+Looking good!
+
++ no longer overparameterized
++ no loss of information
+
+### Comparison with Emma James's final LMM `all_RT_6`
+
++ LMM `all_RT_6` is conveniently nested under  LMM `m2_rt`
++ remove item-related CPs
+
+```{julia}
+all_RT_6 =
+  let d = dat_rt,
+      f = @formula log(rt) ~ 1 + Group*Test*Type + (1 + Test*Type | Subj) + 
+                    zerocorr(1 + Test+Type | Item);
+     fit(MixedModel, f, d; contrasts, progress=false)
+end
+
+issingular(all_RT_6)       # false
+MixedModels.PCA(all_RT_6)  # ok
+VarCorr(all_RT_6)          # ok
+lrtest(all_RT_6, m2_rt, m1_rt, m0_rt)
+```
+
+## GoF stats
+
+```{julia}
+table =[];
+push!(table, all_RT_6); 
+push!(table, m2_rt); 
+push!(table, m1_rt); 
+push!(table, m0_rt); 
+
+model_data = 
+        gof_summary = let
+        mods = eval.(table)
+        DataFrame(;
+          dof=dof.(mods),
+          deviance=round.(deviance.(mods), digits=0),
+          AIC=round.(aic.(mods),digits=0),
+          BIC=round.(bic.(mods),digits=0)
+        )
+      end
+```
+
++ AIC selects LMM `m2_rt`
++ BIC selects LMM `all_RT_6`
+  
+## Residual diagnostics:  Q-Q plot: 
+
+```{julia}
+CairoMakie.activate!(; type="png")
+
+MixedModelsMakie.qqnorm(
+  residuals(m2_rt);
+  qqline=:none,
+  axis=(;
+    xlabel="Standard normal quantiles",
+    ylabel="Quantiles of the residuals from model m1",
+  ),
+)
+```
+
+# Version
+```{julia}
+versioninfo()
+```

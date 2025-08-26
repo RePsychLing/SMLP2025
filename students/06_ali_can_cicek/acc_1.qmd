@@ -1,0 +1,247 @@
+---
+title: "MixedModels.jl Starting Point for Ali Can Çiçek's Example"
+author: "Reinhold Kliegl"
+date: today
+date-format: iso
+format: 
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    code-fold: false
+    number-sections: true
+    fig-width: 8
+    fig-height: 6
+    fig-format: svg
+editor_options: 
+  chunk_output_type: console
+engine: julia
+julia: 
+  exeflags: ["--project", "--threads=auto"]
+---
+
+# Setup
+
+## Packages
+
+```{julia}
+using CSV
+using CairoMakie
+using DataFrames
+using MixedModels
+using MixedModelsExtras
+using MixedModelsMakie
+using RegressionFormulae
+using RCall
+using StatsModels
+```
+
+## Data
+
+```{julia}
+dat = DataFrame(CSV.File("Cicek_Data_Frame.csv"));
+```
+
+# Initial LMM
+
+```{julia}
+m0 =
+  let d = dat
+      f = @formula z_score ~ 1 + evade * remnant + (1 | item) + (1 | subject)
+      fit(MixedModel, f, d)
+end
+
+VarCorr(m0)
+coeftable(m0)
+```
+
+The fixed effects are the same as those reported by lme4:
+
+```
+Fixed effects:
+                   Estimate Std. Error       df t value Pr(>|t|)    
+(Intercept)         0.28540    0.07026 74.40124   4.062 0.000119 ***
+evadeiso           -0.42333    0.08704 45.78638  -4.864 1.40e-05 ***
+remnantwh           0.42949    0.08704 45.78638   4.934 1.11e-05 ***
+evadeiso:remnantwh -0.35214    0.12309 45.78638  -2.861 0.006347 ** 
+```
+
+The estimates are the result of dummy coding.  However, experimental 
+(different from "observational") scientists prefer effects coding 
+(in R: sum coding - contr.sum(2) for your data).
+
+We discuss this at the summer school. Here an illustration.
+
+# Contrasts
+
+```{julia}
+contrasts = Dict(
+  :subject => Grouping(),
+  :item    => Grouping(),
+  :evade   => EffectsCoding(; levels=["eva", "iso"]),
+  :remnant => EffectsCoding(; levels=["nonwh", "wh"]),
+)
+```
+
+Contrasts don't make a difference, but estimates are different from lme4 default.
+
+```{julia}
+m1 =
+  let d = dat
+      f = @formula z_score ~ 1 + evade * remnant + (1 | item) + (1 | subject)
+      fit(MixedModel, f, d; contrasts)
+end
+
+VarCorr(m1)
+coeftable(m1)
+```
+
+Switching to default contrasts of lme4.
+
+```{julia}
+contrasts = Dict(
+  :subject => Grouping(),
+  :item    => Grouping(),
+  :evade   => DummyCoding(; levels=["eva", "iso"]),
+  :remnant => DummyCoding(; levels=["nonwh", "wh"]),
+)
+```
+
+
+# Preferred style for "levels" of random factors
+
+It is also good practice to use strings, not integers for subjects and items, 
+by prefix them with "S" and "I", also leftpad with zeros to make them of 
+equal lengths.
+
+```{julia}
+transform(dat, 
+    :subject => ByRow(x -> string("S", lpad(string(x), 3, "0"))) => :subject,
+    :item => ByRow(x -> string("I", lpad(string(x), 5, "0"))) => :item
+)
+```
+
+
+```{julia}
+m1_dummy =
+  let d = dat
+      f = @formula z_score ~ 1 + evade * remnant + (1 | item) + (1 | subject)
+      fit(MixedModel, f, d; contrasts)
+end
+
+VarCorr(m1_dummy)
+coeftable(m1_dummy)
+```
+
+# LMM selection
+
+Random-effect structures should be examined for overparameterization. This 
+can be done by increasing model complexity. 
+
+Let's move back to EffectCoding() of factors.
+
+```{julia}
+contrasts = Dict(
+  :subject => Grouping(),
+  :item    => Grouping(),
+  :evade   => EffectsCoding(; levels=["eva", "iso"]),
+  :remnant => EffectsCoding(; levels=["nonwh", "wh"]),
+)
+```
+
+
+```{julia}
+m1 =
+  let d = dat
+      f = @formula z_score ~ 1 + evade * remnant + (1 | item) + (1 | subject)
+      fit(MixedModel, f, d; contrasts)
+end
+
+VarCorr(m1)
+coeftable(m1)
+```
+
+
+```{julia}
+m2 =
+  let d = dat
+      f = @formula z_score ~ 1 + evade * remnant +
+                            (1 + evade + remnant | item) + (1  + evade + remnant | subject)
+      fit(MixedModel, f, d; contrasts)
+end
+
+issingular(m2)      # true
+MixedModels.PCA(m2) # not ok
+VarCorr(m2)
+```
+
+This LMM is overparameterized (degenerate). PCA shows problem is item-related random-effect structure (RES).
+
+Increasing complexity even further:
+
+```{julia}
+m3 =
+  let d = dat
+      f = @formula z_score ~ 1 + evade * remnant +
+                            (1 + evade * remnant | item) + (1  + evade * remnant | subject)
+      fit(MixedModel, f, d; contrasts)
+end
+
+issingular(m3)      # true
+MixedModels.PCA(m3) # not ok
+VarCorr(m3)
+```
+
+Given that the simple LMM was overparameterized, it is not a surprise that the complex one is, too. 
+
+```{julia}
+lrtest(m1, m2, m3)
+```
+
+Nominally, the goodness of fit increases with model complexity despite overparameterization.
+
+To find a model that is supported by the data, we could reduce complexity of LMM `m2` by 
+forcing correlation parameters to zero 
+
+```{julia}
+m4 =
+  let d = dat
+      f = @formula z_score ~ 1 + evade * remnant +
+                    zerocorr(1 + evade + remnant | item) + (1  + evade + remnant | subject)
+      fit(MixedModel, f, d; contrasts)
+end
+
+issingular(m4)      # false
+MixedModels.PCA(m4) #  ok
+VarCorr(m4)
+```
+
+Parsimonious LMM `m4` is supported by the data. In principle, subject-related correlation parameters are interpretable.
+
+```{julia}
+lrtest(m1, m4, m2)
+```
+
+
+```{julia}
+table =[];
+push!(table, m1); push!(table, m4); push!(table, m2);
+
+model_data = 
+        gof_summary = let
+        mods = eval.(table)
+        DataFrame(;
+          dof=dof.(mods),
+          deviance=round.(deviance.(mods), digits=0),
+          AIC=round.(aic.(mods),digits=0),
+          BIC=round.(bic.(mods),digits=0)
+        )
+      end
+```
+
+Both AIC and BIC prefer LMM `m4`.  
+
+# Version
+```{julia}
+versioninfo()
+```

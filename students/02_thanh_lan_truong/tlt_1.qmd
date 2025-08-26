@@ -1,0 +1,207 @@
+---
+title: "RePsychLing Thanh Lan Truong's 'smlp_script'"
+author: "Reinhold Kliegl"
+date: today
+date-format: iso
+format: 
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    code-fold: false
+    number-sections: true
+    fig-width: 8
+    fig-height: 6
+    fig-format: svg
+editor_options: 
+  chunk_output_type: console
+engine: julia
+julia: 
+  exeflags: ["--project", "--threads=auto"]
+---
+
+
+# Setup
+
+## Packages
+
+```{julia}
+using Arrow
+using CairoMakie
+using DataFrames
+using MixedModels
+using MixedModelsExtras
+using MixedModelsMakie
+using RegressionFormulae
+using RCall
+using StatsModels
+```
+
+## Data
+
+```{julia}
+dat = DataFrame(Arrow.Table("./data/tlt_heritage_identification.arrow"));
+
+dat.correct = Bool.(dat.correct)
+describe(dat)
+```
+
+# GLMMs
+
+## Contrasts
+
+```{julia}
+contrasts = Dict(
+  :SG => DummyCoding(; base="monocultural german"),
+  :LG  => DummyCoding(; base="monocultural german"),
+  :S_Sex => EffectsCoding(; base="Male")
+)
+```
+
+## Simple checks
+
+```{julia}
+m0 =
+  let d = dat,
+      ds = Bernoulli(),
+      f = @formula correct ~ 1 + LG*(SG+geq_g) + rc + S_Sex + (1  | Subj) + (1  | Item);
+      fit(MixedModel, f, d, ds; contrasts, nAGQ=1, progress=false)
+end
+```
+
+## VOI GLMM
+
+```{julia}
+m1 =
+  let d = dat,
+      ds = Bernoulli(),
+      f = @formula correct ~ 1 + SG*LG*geq_g + rc + S_Sex + (1  | Subj) + (1  | Item);
+      fit(MixedModel, f, d, ds; contrasts, nAGQ=1, progress=false)
+end
+```
+
+## Indicator variables
+
+To take care of missing values on three scales of monocultaral listeners, we need to move to indicator variables. This allow us to remove main effects of these scales from the GLMM.
+
+First we fit a fully crossed overparameterized model.
+
+```{julia}
+m2 =
+  let d = dat,
+      ds = Bernoulli(),
+      f = @formula correct ~ 1 + SG + LG*(geq_v+miss_h+miss_a) + rc + S_Sex + (1  | Subj) + (1 | Item);
+      fit(MixedModel, f, d, ds; contrasts, nAGQ=1, progress=false)
+end
+```
+
+Then we extract the relevant main effects and interaction terms ...
+
+```{julia}
+mm = modelmatrix(m2);
+dat.sg = mm[:, 2];
+dat.lg = mm[:, 3];
+dat.lg_geq_v  = mm[:, 9];
+dat.lg_miss_h = mm[:,10];
+dat.lg_miss_a = mm[:,11];
+```
+
+... and fit the GLMM to the reduced model matrix. 
+
+```{julia}
+m3 =
+  let d = dat,
+      ds = Bernoulli(),
+      f = @formula correct ~ 1 + SG*LG*geq_g + rc + S_Sex + lg_geq_v + lg_miss_h + lg_miss_a + 
+                            (1 | Subj) + (1 | Item);
+      fit(MixedModel, f, d, ds; contrasts, nAGQ=1, progress=false)
+end
+```
+
+```{julia}
+lrtest(m1, m3)
+```
+
+Adding Subj-related VCs and CPs
+
+```{julia}
+m4a =
+  let d = dat,
+      ds = Bernoulli(),
+      f = @formula correct ~ 1 + SG*LG*geq_g + rc + S_Sex + 
+                    zerocorr(1 + SG | Subj) + (1 | Item);
+      fit(MixedModel, f, d, ds; contrasts, nAGQ=1, progress=false)
+end
+
+m4b =
+  let d = dat,
+      ds = Bernoulli(),
+      f = @formula correct ~ 1 + SG*LG*geq_g + rc + S_Sex + 
+                            (1 + SG | Subj) + (1 | Item);
+      fit(MixedModel, f, d, ds; contrasts, nAGQ=1, progress=false)
+end
+
+issingular(m4b)      # false
+MixedModels.PCA(m4b) # ok
+VarCorr(m4b)
+
+lrtest(m1, m4a, m4b)
+```
+
++ Subj-related VC for rc is zero.
+
+Adding Item-related VCs and CPs
+
+```{julia}
+m5a =
+  let d = dat,
+      ds = Bernoulli(),
+      f = @formula correct ~ 1 + SG*LG*geq_g + rc + S_Sex + 
+                            (1 + SG | Subj) + zerocorr(1 + SG| Item);
+      fit(MixedModel, f, d, ds; contrasts, nAGQ=1, progress=false)
+end
+
+m5b =
+  let d = dat,
+      ds = Bernoulli(),
+      f = @formula correct ~ 1 + SG*LG*geq_g + rc + S_Sex + 
+                            (1 + SG | Subj) +  (1 + SG | Item);
+      fit(MixedModel, f, d, ds; contrasts, nAGQ=1, progress=false)
+end
+
+issingular(m5b)      # false
+MixedModels.PCA(m5b) # ok
+VarCorr(m5b)
+
+lrtest(m1, m4a, m4b, m5a, m5b)
+```
+
++ Item-related VC for LG is zero 
+  
+## GoF stats
+
+```{julia}
+table =[];
+push!(table, m1);
+push!(table, m4a);
+push!(table, m4b);
+push!(table, m5a);
+push!(table, m5b);
+
+model_data = 
+        gof_summary = let
+        mods = eval.(table)
+        DataFrame(;
+          dof=dof.(mods),
+          deviance=round.(deviance.(mods), digits=0),
+          AIC=round.(aic.(mods),digits=0),
+          BIC=round.(bic.(mods),digits=0)
+        )
+      end
+```
+
+
+# Version
+```{julia}
+versioninfo()
+```

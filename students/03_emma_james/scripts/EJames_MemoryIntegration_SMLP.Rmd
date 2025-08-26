@@ -1,0 +1,445 @@
+---
+title: 'Memory Integration: Main Analyses (for SMLP)'
+author: "Emma James"
+date: "July 2025"
+output: 
+  html_document:
+    
+    toc: true 
+    toc_float: true
+knit: (function(inputFile, encoding) {
+  rmarkdown::render(inputFile, encoding = encoding, output_dir = "../output/analysis/") })
+editor_options: 
+  chunk_output_type: console
+---
+
+*This script contains a stripped back version of the analyses for participation in the SMLP summer school.*
+
+# Background
+
+These data are from an experiment looking at differences in children's and adults' ability to integrate information in memory. Participants encoded pairs of stimuli that were either overlapping (AB, AC) or independent (DE). At test, they completed a speeded 2-AFC task that assessed memory for the encoded independent pairs (DE) and inference across overlapping pairs (BC). They completed the test tasks immediately and one week later to assess memory consolidation.
+
+It followed a 2x2x2 design as follows:
+
+-   **Pair type (within-subjects):** Whether the test pair had been directly encoded as an independent pair (DE) during the encoding phase, or whether it was an inference (BC) across overlapping AB-AC pairs. The assignment of the stimulus triplets to the overlapping versus independent condition was counterbalanced across participants.
+-   **Test time (within-subjects):** Whether the pair was tested immediately after learning or one week later (counterbalanced across participants).
+-   **Age group (between-subjects):** Whether the participant was a child (aged 8-10 years) or adult.
+
+The primary analysis I'm submitting for the workshop is on the accuracy data, as I most frequently analyse accuracy data in my other experiments (typically word learning studies). However, I have also retained the RT analysis for this dataset in the script in case it is also helpful to have data for linear model in the summer school.
+
+## Preregistered analysis plans
+
+The hypotheses and analyses were preregistered at <https://osf.io/kvazx>:
+
+*We will use mixed effects models, with fixed effects of age group, test time, pair type, and all corresponding interactions. Note that although participants are tested on all stimuli at the week test, only those previously untested will be included in the analysis.*
+
+*Accuracy data will be analysed using a binomial model. RT to correct responses (\>=200 ms) will be analysed using a linear model in the first instance (but see ‘Transformations’).*
+
+*For both analyses, we will begin with a maximal random effects structure, including all random slopes for participant and items. In the likely case of non-convergence, we will first simplify the correlation structure, then prune the smallest random slopes until convergence is achieved.*
+
+# Primary modelling concerns
+
+-   **Singular fit:** I pretty much always experience this warning, and often encounter conflicting information. In my modelling process below, I've simplified the model until the warning goes away, but I'm not sure if there's a better way.
+    -   (I also see this a lot in designs where I have three test points, such that the random effects for the two contrasts are very highly correlated. So I am not sure how to deal with this more broadly.)
+-   **Model diagnostics:** I typically inspect these at some point along the way, but I'm not too confident in judging what's good enough versus potential solutions, particularly for GLMMs.
+-   **P-values:** I admit I've gotten lazy with these and defaulted to Wald's Z provided / default output of lmerTest. What are the better options I should use and why? How else can I make the most of interpreting my data?
+-   *(Entirely beyond the scope of this workshop... we're also considering supplementing this analysis with some kind of Bayes Factors or equivalence test, as the most interesting hypothesis related to the 3-way interaction which is not significant. There are obviously two other whole strands dedicated to this topic, but if anyone is able to offer advice on a sensible direction then I'd appreciate it!)*
+
+Unrelated to this dataset, I also have some questions re: the limits of mixed effects models. For example, one of my motivations for learning Julia is the scope for working with big datasets, but these are often very messy and imbalanced (e.g., if taken from a language learning app - some words might feature in the dataset many times whereas others only once or twice; some users might contribute lots of data whereas others not). I would like a better understanding of whether mixed effects models can be an appropriate tool in these contexts.
+
+# Set-up
+
+## Load packages
+
+```{r load-packages, message = FALSE, warning = FALSE}
+# Load packages
+library(tidyverse)
+library(lme4)
+library(lmerTest)
+library(emmeans)
+library(broom.mixed)
+library(performance)
+
+# Turn off scientific notation
+options(scipen = 999)
+```
+
+## Load preprocessed data
+
+This dataset has been preprocessed ready for analysis, with additional variables/trials not included in the main analysis removed.
+
+```{r load-data}
+# Load data
+test_dat <- read.csv("./data/processed/EJames_MemoryIntegration_SMLP.csv")
+
+# Preview rows
+head(test_dat)
+
+# Summarise variable types
+str(test_dat)
+
+# Data availability
+length(unique(test_dat$ppt_id))
+length(unique(test_dat$triplet_id))
+
+test_dat %>% 
+  group_by(group_c, test_c) %>% 
+  summarise(n_ppts = length(unique(ppt_id)))
+```
+
+The variables are as follows:
+
+-   **ppt_id**: unique participant identifier *(random effect)*
+-   **group_c**: whether the participant is a child (-.5) or adult (+.5). *(fixed effect)*
+-   **test_c**: whether the test was immediate (-.5) or one week later (+.5). *(fixed effect)*
+-   **triplet_id**: stimulus identified (i.e., unique object-location pair) *(random effect)*
+-   **pair_type_c**: whether the pair tested BC inference (-.5) or DE memory retrieval (+.5) *(fixed effect)*
+-   **acc**: whether the trial was answered correctly (0, 1) *(dependent variable)*
+-   **RT_acc**: response time for accurate trials only, preprocessed for \>200ms *(dependent variable)*
+
+Fixed effects were contrast-coded manually to permit manipulation of the random effects structure.
+
+A higher number of adults than children completed the tasks, but experiment drop-out was also higher for adults than children. The target *n* for each group was 130 complete datasets.
+
+## Descriptive statistics
+
+Main effects
+
+```{r all-trials-acc-desc-main}
+# By group / trial level
+test_dat %>% 
+  group_by(group_c) %>% 
+  summarise(acc_mean = mean(acc), acc_sd = sd(acc), 
+            RT_mean = mean(RT_acc, na.rm = TRUE), RT_sd = sd(RT_acc, na.rm = TRUE))
+
+# By test / trial level
+test_dat %>% 
+  group_by(test_c) %>% 
+  summarise(acc_mean = mean(acc), acc_sd = sd(acc), 
+            RT_mean = mean(RT_acc, na.rm = TRUE), RT_sd = sd(RT_acc, na.rm = TRUE))
+
+# By pair type / trial level
+test_dat %>% 
+  group_by(pair_type_c) %>% 
+  summarise(acc_mean = mean(acc), acc_sd = sd(acc), 
+            RT_mean = mean(RT_acc, na.rm = TRUE), RT_sd = sd(RT_acc, na.rm = TRUE))
+```
+
+Relevant interaction effects
+
+```{r all-trials-acc-desc-int}
+# Group x test
+test_dat %>% 
+  group_by(group_c, test_c) %>% 
+  summarise(acc_mean = mean(acc), acc_sd = sd(acc), 
+            RT_mean = mean(RT_acc, na.rm = TRUE), RT_sd = sd(RT_acc, na.rm = TRUE))
+
+# Group x pair_type
+test_dat %>% 
+  group_by(group_c, pair_type_c) %>% 
+  summarise(acc_mean = mean(acc), acc_sd = sd(acc), 
+            RT_mean = mean(RT_acc, na.rm = TRUE), RT_sd = sd(RT_acc, na.rm = TRUE))
+
+# Test x pair_type
+test_dat %>% 
+  group_by(test_c, pair_type_c) %>% 
+  summarise(acc_mean = mean(acc), acc_sd = sd(acc), 
+            RT_mean = mean(RT_acc, na.rm = TRUE), RT_sd = sd(RT_acc, na.rm = TRUE))
+
+# 3-way
+test_dat %>% 
+  group_by(group_c, test_c, pair_type_c) %>% 
+  summarise(acc_mean = mean(acc), acc_sd = sd(acc), 
+            RT_mean = mean(RT_acc, na.rm = TRUE), RT_sd = sd(RT_acc, na.rm = TRUE))
+```
+
+# Accuracy analysis
+
+## Model fitting
+
+```{r all-trials-acc-mod-fit}
+# Maximal model - SINGULAR FIT  
+all_acc_0 <- glmer(acc ~ group_c*test_c*pair_type_c + (1+test_c*pair_type_c|ppt_id) +
+                     (1+group_c*test_c*pair_type_c|triplet_id), data = test_dat, family = "binomial", 
+                   control = glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e5)))  
+save(all_acc_0, file = "../output/models/alltrials_acc0.Rdata") 
+summary(all_acc_0)$varcor
+
+# Simplified model 1 - remove random effect correlations for items - SINGULAR FIT
+all_acc_1 <- glmer(acc ~ group_c*test_c*pair_type_c + (1+test_c*pair_type_c|ppt_id) +
+                     (1+group_c*test_c*pair_type_c||triplet_id), data = test_dat, family = "binomial", 
+                   control = glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e5))) 
+save(all_acc_1, file = "../output/models/alltrials_acc1.Rdata") 
+summary(all_acc_1)$varcor
+
+# Simplified model 2 - Simplify item random effects - remove three-way interaction - SINGULAR FIT
+all_acc_2 <- glmer(acc ~ group_c*test_c*pair_type_c + (1+test_c*pair_type_c|ppt_id) + 
+                     (1+group_c*test_c + group_c*pair_type_c + test_c*pair_type_c||triplet_id), 
+                   data = test_dat, family = "binomial", control = glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e5))) 
+save(all_acc_2, file = "../output/models/alltrials_acc2.Rdata") 
+summary(all_acc_2)$varcor
+
+# Simplified model 3 - Simplify item random effects - remove 2-way group*pair_type (0 variance)
+all_acc_3 <- glmer(acc ~ group_c*test_c*pair_type_c + (1+test_c*pair_type_c|ppt_id) + 
+                     (1+group_c*test_c + test_c*pair_type_c||triplet_id), 
+                   data = test_dat, family = "binomial", control = glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e5))) 
+save(all_acc_3, file = "../output/models/alltrials_acc3.Rdata") 
+```
+
+## Final model
+
+```{r all-trials-acc-finalmod}
+# Inspect final model
+check_model(all_acc_3)
+plot(DHARMa::simulateResiduals(all_acc_3))
+
+# Summarise final model 
+all_acc_final <- all_acc_3
+summary(all_acc_final)
+
+# Save model output to table
+tidy(all_acc_final) %>% 
+  mutate(across(c(estimate, std.error, statistic), \(x) round(x, 2))) %>% 
+  mutate(across(c(p.value), \(x) round(x, 3))) %>%   
+  write.csv("../output/tables/all_acc_mod.csv", row.names = FALSE)
+
+# Follow-up contrasts 
+emmeans(all_acc_final, pairwise ~ group_c|test_c)
+emmeans(all_acc_final, pairwise ~ group_c|pair_type_c)
+emmeans(all_acc_final, pairwise ~ pair_type_c|test_c)
+```
+
+## Figure
+
+Plot raw data for reference.
+
+```{r all-trials-acc-plot}
+# Participant means
+ppt_means <- test_dat %>% 
+  mutate(pair_type = as.factor(pair_type_c),
+         group = as.factor(group_c),
+         test = as.factor(test_c)) %>% 
+  group_by(ppt_id, group, test, pair_type) %>% 
+  summarise(ppt_mean = mean(acc)) 
+
+# Group means
+group_means <- ppt_means %>% 
+  group_by(group, test, pair_type) %>% 
+  summarise(n = n(), group_acc = mean(ppt_mean, na.rm = TRUE), 
+            sd_acc = sd(ppt_mean, na.rm = TRUE)) %>% 
+  mutate(se_acc = sd_acc/sqrt(n)) %>% 
+  mutate(test = as.factor(test)) 
+
+# Facet labels
+pair_labs <- c("Memory (DE)", "Integration (BC)")
+names(pair_labs) <- c("0.5", "-0.5")
+
+group_labs <- c("Adults", "Children")
+names(group_labs) <-  c("0.5", "-0.5")
+
+# Plot
+ggplot(ppt_means, aes(x = test, y = ppt_mean)) +
+  geom_bar(data = group_means, aes(x = test, y = group_acc, group = pair_type), 
+           stat = "identity", alpha = 0.1, width = 0.8) + 
+  geom_point(aes(group = ppt_id, colour = as.factor(ppt_id)), alpha = 0.4) + 
+  geom_path(aes(group = ppt_id, colour = as.factor(ppt_id)), alpha = 0.4) + 
+  geom_point(data = group_means, aes(x = test, y = group_acc, group = pair_type)) + 
+  geom_path(data = group_means, aes(x = test, y = group_acc, group = pair_type),
+            size = 1) +
+  scale_y_continuous(name = "Proportion correct", expand = c(0,0), 
+                     limits = c(0, 1.05)) +
+  scale_x_discrete(name = "", breaks = c(1,2), 
+                   labels = c("Immediate", "One week")) + 
+  geom_hline(yintercept = 0.5, linetype = "dashed", colour = "darkgrey") + 
+  facet_grid(group ~ pair_type, labeller = labeller(pair_type = pair_labs, 
+                                                    group = group_labs))+ 
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white"),
+        legend.position = "none", 
+        axis.line = element_line(colour = "black"),
+        axis.text = element_text(colour = "black"),
+        strip.text.x = element_text(face = "bold", colour = "black", 
+                                    hjust = 0.5, size = 12),
+        strip.text.y = element_text(face = "bold", colour = "black", 
+                                    hjust = 0, size = 12),
+        panel.spacing.x = unit(0, "points")) +
+  annotate("segment", x=-Inf, xend=Inf, y=-Inf, yend=-Inf)
+
+# Save
+ggsave("../output/figures/alltrials_acc.png")
+```
+
+# (RT)
+
+***Preregistration:** We will inspect model residuals of the RT analyses to assess issues of skewness. If apparent, we will test alternative transformations (e.g., log, inverse) to ensure the best fitting model.*
+
+## Model fitting
+
+First inspect best option for dealing with skewness.
+
+```{r all-trials-rt-mod-skew}
+# Simple model - raw RT data
+all_RT_raw <- lmer(RT_acc ~ group_c*test_c*pair_type_c + (1|ppt_id) + 
+                     (1|triplet_id), data = test_dat)  
+hist(resid(all_RT_raw))
+qqnorm(resid(all_RT_raw))
+
+# Simple model - inverse RT data
+all_RT_inv <- lmer((1/RT_acc) ~ group_c*test_c*pair_type_c + (1|ppt_id) +
+                     (1|triplet_id), data = test_dat)  
+hist(resid(all_RT_inv))
+qqnorm(resid(all_RT_inv))
+
+# Simple model - logRT data
+all_RT_log <- lmer(log(RT_acc) ~ group_c*test_c*pair_type_c + (1|ppt_id) +
+                     (1|triplet_id), data = test_dat)  
+hist(resid(all_RT_log))
+qqnorm(resid(all_RT_log))
+```
+
+The log-transformed option looks to be the best option for dealing with skewness.
+
+```{r all-trials-rt-mod-fit}
+# Maximal model - FAILED TO CONVERGE, SINGULAR FIT
+all_RT_0 <- lmer(log(RT_acc) ~ group_c*test_c*pair_type_c + 
+                   (1+test_c*pair_type_c|ppt_id) + 
+                   (1+group_c*test_c*pair_type_c|triplet_id), 
+                   data = test_dat)  
+save(all_RT_0, file = "../output/models/alltrials_RT0.Rdata") 
+summary(all_RT_0)$varcor
+
+# Simplified model 1 - remove random effect correlations for items - SINGULAR FIT
+all_RT_1 <- lmer(log(RT_acc) ~ group_c*test_c*pair_type_c + 
+                   (1+test_c*pair_type_c|ppt_id) + 
+                   (1+group_c*test_c*pair_type_c||triplet_id), 
+                   data = test_dat)  
+save(all_RT_1, file = "../output/models/alltrials_RT1.Rdata") 
+summary(all_RT_1)$varcor
+
+# Simplified model 2 - Simplify item random effects - remove three-way interaction - SINGULAR FIT
+all_RT_2 <- lmer(log(RT_acc)  ~ group_c*test_c*pair_type_c + 
+                   (1+test_c*pair_type_c|ppt_id) + 
+                   (1+group_c*test_c + group_c*pair_type_c + 
+                      test_c*pair_type_c||triplet_id), 
+                   data = test_dat)  
+save(all_RT_2, file = "../output/models/alltrials_RT2.Rdata") 
+summary(all_RT_2)$varcor
+
+# Simplified model 3 - Simplify item random effects - remove 2-way group*pair_type (0 variance) - SINGULAR FIT
+all_RT_3 <- lmer(log(RT_acc)  ~ group_c*test_c*pair_type_c + 
+                   (1+test_c*pair_type_c|ppt_id) + 
+                   (1+group_c*test_c + test_c*pair_type_c||triplet_id), 
+                   data = test_dat)  
+save(all_RT_3, file = "../output/models/alltrials_RT3.Rdata") 
+summary(all_RT_3)$varcor
+
+# Simplified model 4 - Simplify item random effects - remove 2-way test*pair_type (next simplification) - SINGULAR FIT
+all_RT_4 <- lmer(log(RT_acc)  ~ group_c*test_c*pair_type_c + 
+                   (1+test_c*pair_type_c||ppt_id) + 
+                   (1+group_c + test_c + pair_type_c + group_c:test_c||triplet_id), 
+                   data = test_dat, control = lmerControl(optimizer="bobyqa",
+                                                          optCtrl=list(maxfun=2e5)))  
+save(all_RT_4, file = "../output/models/alltrials_RT4.Rdata") 
+summary(all_RT_4)$varcor
+
+# Simplified model 5 - Simplify item random effects - remove 2-way group*test (can't remove group with it in) - SINGULAR FIT
+all_RT_5 <- lmer(log(RT_acc)  ~ group_c*test_c*pair_type_c + 
+                   (1+test_c*pair_type_c|ppt_id) + 
+                   (1+group_c + test_c + pair_type_c||triplet_id), 
+                   data = test_dat, control = lmerControl(optimizer="bobyqa",
+                                                          optCtrl=list(maxfun=2e5)))  
+save(all_RT_5, file = "../output/models/alltrials_RT5.Rdata") 
+summary(all_RT_5)$varcor
+
+# Simplified model 6 - Simplify item random effects - remove group (0 variance) - CONVERGED
+all_RT_6 <- lmer(log(RT_acc)  ~ group_c*test_c*pair_type_c + 
+                   (1+test_c*pair_type_c|ppt_id) + 
+                   (1 + test_c + pair_type_c||triplet_id), 
+                   data = test_dat, control = lmerControl(optimizer="bobyqa",
+                                                          optCtrl=list(maxfun=2e5)))  
+save(all_RT_6, file = "../output/models/alltrials_RT6.Rdata") 
+```
+
+## Final model
+
+```{r all-trials-rt-mod-final}
+# Inspect final model 
+all_RT_final <- all_RT_6
+summary(all_RT_final)
+
+# Save model output to table
+tidy(all_RT_final) %>% 
+  mutate(across(c(estimate, std.error, statistic), \(x) round(x, 2))) %>% 
+  mutate(across(c(p.value), \(x) round(x, 3))) %>%   
+  write.csv("../output/tables/all_RT_mod.csv", row.names = FALSE)
+
+# Follow-up contrasts for interactions
+emmeans(all_RT_final, pairwise ~ group_c|test_c)
+emmeans(all_RT_final, pairwise ~ pair_type_c|test_c)
+```
+
+## Figure
+
+Plot raw data for reference.
+
+```{r all-trials-rt-plot}
+# Participant means
+ppt_means <- test_dat %>% 
+  mutate(pair_type = as.factor(pair_type_c),
+         group = as.factor(group_c),
+         test = as.factor(test_c)) %>% 
+  group_by(ppt_id, group, test, pair_type) %>% 
+  summarise(ppt_mean = mean(RT_acc, na.rm = TRUE))
+
+# Group means
+group_means <- ppt_means %>% 
+  group_by(group, test, pair_type) %>% 
+  summarise(n = n(), group_mean = mean(ppt_mean, na.rm = TRUE), 
+            sd_acc = sd(ppt_mean, na.rm = TRUE)) %>% 
+  mutate(se_acc = sd_acc/sqrt(n)) %>% 
+  mutate(test = as.factor(test)) 
+
+# Facet labels
+pair_labs <- c("Memory (DE)", "Integration (BC)")
+names(pair_labs) <- c("0.5", "-0.5")
+
+group_labs <- c("Adults", "Children")
+names(group_labs) <-  c("0.5", "-0.5")
+
+# Plot
+ppt_means %>% 
+  filter(ppt_mean < 6000) %>% 
+ggplot(aes(x = test, y = ppt_mean)) +
+  geom_bar(data = group_means, aes(x = test, y = group_mean, group = pair_type),
+           stat = "identity", alpha = 0.1, width = 0.8) + 
+  geom_point(aes(group = ppt_id, colour = as.factor(ppt_id)), alpha = 0.4) + 
+  geom_path(aes(group = ppt_id, colour = as.factor(ppt_id)), alpha = 0.4) + 
+  geom_point(data = group_means, aes(x = test, y = group_mean, group = pair_type)) +
+  geom_path(data = group_means, aes(x = test, y = group_mean, group = pair_type),
+            size = 1) +
+  scale_y_continuous(name = "RT (ms)", expand = c(0,0), limits = c(0, 6000)) +
+  scale_x_discrete(name = "", breaks = c(1,2), 
+                   labels = c("Immediate", "One week")) + 
+  facet_grid(group ~ pair_type, labeller = labeller(pair_type = pair_labs, 
+                                                    group = group_labs))+ 
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white"),
+        legend.position = "none", 
+        axis.line = element_line(colour = "black"),
+        axis.text = element_text(colour = "black"),
+        strip.text.x = element_text(face = "bold", colour = "black", 
+                                    hjust = 0.5, size = 12),
+        strip.text.y = element_text(face = "bold", colour = "black", 
+                                    hjust = 0, size = 12),
+        panel.spacing.x = unit(0, "points")) +
+  annotate("segment", x=-Inf, xend=Inf, y=-Inf, yend=-Inf)
+
+# Save
+ggsave("../output/figures/alltrials_RT.png")
+```
+
+# Version info
+
+```{r sessionInfo}
+sessionInfo()
+```

@@ -1,0 +1,489 @@
+---
+title: "RePsychLing Emma James's 'Memory Integration'"
+author: "Reinhold Kliegl"
+date: today
+date-format: iso
+format: 
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    code-fold: false
+    number-sections: true
+    fig-width: 8
+    fig-height: 6
+    fig-format: svg
+editor_options: 
+  chunk_output_type: console
+---
+
+*This script contains a stripped back version of the analyses for participation in the SMLP summer school.*
+
+# Background
+
+These data are from an experiment looking at differences in children's and adults' ability to integrate information in memory. Participants encoded pairs of stimuli that were either overlapping (AB, AC) or independent (DE). At test, they completed a speeded 2-AFC task that assessed memory for the encoded independent pairs (DE) and inference across overlapping pairs (BC). They completed the test tasks immediately and one week later to assess memory consolidation.
+
+It followed a 2x2x2 design as follows:
+
+-   **Pair type (within-subjects):** Whether the test pair had been directly encoded as an independent pair (DE) during the encoding phase, or whether it was an inference (BC) across overlapping AB-AC pairs. The assignment of the stimulus triplets to the overlapping versus independent condition was counterbalanced across participants.
+-   **Test time (within-subjects):** Whether the pair was tested immediately after learning or one week later (counterbalanced across participants).
+-   **Age group (between-subjects):** Whether the participant was a child (aged 8-10 years) or adult.
+
+The primary analysis I'm submitting for the workshop is on the accuracy data, as I most frequently analyse accuracy data in my other experiments (typically word learning studies). However, I have also retained the RT analysis for this dataset in the script in case it is also helpful to have data for linear model in the summer school.
+
+## Preregistered analysis plans
+
+The hypotheses and analyses were preregistered at <https://osf.io/kvazx>:
+
+*We will use mixed effects models, with fixed effects of age group, test time, pair type, and all corresponding interactions. Note that although participants are tested on all stimuli at the week test, only those previously untested will be included in the analysis.*
+
+*Accuracy data will be analysed using a binomial model. RT to correct responses (\>=200 ms) will be analysed using a linear model in the first instance (but see ‘Transformations’).*
+
+*For both analyses, we will begin with a maximal random effects structure, including all random slopes for participant and items. In the likely case of non-convergence, we will first simplify the correlation structure, then prune the smallest random slopes until convergence is achieved.*
+
+# Primary modelling concerns
+
+-   **Singular fit:** I pretty much always experience this warning, and often encounter conflicting information. In my modelling process below, I've simplified the model until the warning goes away, but I'm not sure if there's a better way.
+    -   (I also see this a lot in designs where I have three test points, such that the random effects for the two contrasts are very highly correlated. So I am not sure how to deal with this more broadly.)
+-   **Model diagnostics:** I typically inspect these at some point along the way, but I'm not too confident in judging what's good enough versus potential solutions, particularly for GLMMs.
+-   **P-values:** I admit I've gotten lazy with these and defaulted to Wald's Z provided / default output of lmerTest. What are the better options I should use and why? How else can I make the most of interpreting my data?
+-   *(Entirely beyond the scope of this workshop... we're also considering supplementing this analysis with some kind of Bayes Factors or equivalence test, as the most interesting hypothesis related to the 3-way interaction which is not significant. There are obviously two other whole strands dedicated to this topic, but if anyone is able to offer advice on a sensible direction then I'd appreciate it!)*
+
+Unrelated to this dataset, I also have some questions re: the limits of mixed effects models. For example, one of my motivations for learning Julia is the scope for working with big datasets, but these are often very messy and imbalanced (e.g., if taken from a language learning app - some words might feature in the dataset many times whereas others only once or twice; some users might contribute lots of data whereas others not). I would like a better understanding of whether mixed effects models can be an appropriate tool in these contexts.
+
+# Set-up
+
+## Load packages
+
+```{r load-packages, message = FALSE, warning = FALSE}
+# Load packages
+library(arrow)
+library(easystats)
+library(tidyverse)
+library(lme4)
+#library(lmerTest)
+library(emmeans)
+library(broom.mixed)
+library(performance)
+library(summarytools)
+
+# Turn off scientific notation
+options(scipen = 999)
+```
+
+## Load preprocessed data
+
+This dataset has been preprocessed ready for analysis, with additional variables/trials not included in the main analysis removed.
+
+RK: A bit of adjustment to my own style of coding.
+
+```{r load-data}
+dat <- 
+  read_csv("../data/processed/EJames_MemoryIntegration_SMLP.csv") |> 
+  rename(rt=RT_acc)  |> 
+  mutate(Subj = as_factor(paste0("S", str_pad(ppt_id, width = 8, side = "left", pad = "0"))),
+         Item = as_factor(paste0("I", str_pad(triplet_id, width = 2 , side = "left", pad = "0"))),
+         Group = factor(group_c, labels=c("child", "adult")),
+         Test = factor(test_c, labels=c("immediate", "delayed")),
+         Type = factor(pair_type_c, labels=c("BC", "DC")),
+         lrt  = log(rt)) |> 
+  select(Subj, Item, Group, Test, Type, acc, rt, lrt)
+```
+
+## Checks
+
+```{r load-data}
+#stview(dfSummary(dat))
+
+dat |> group_by(Subj, Group) |> tally() |> spread(Group, n) # |> tail()  # between
+dat |> group_by(Subj, Test)  |> tally() |> spread(Test, n)  # |> tail()  # within
+dat |> group_by(Subj, Type)  |> tally() |> spread(Type, n)  # |> tail()  # within
+
+dat |> group_by(Item, Group) |> tally() |> spread(Group, n) # |> tail() # within
+dat |> group_by(Item, Test)  |> tally() |> spread(Test, n)  # |> tail() # within
+dat |> group_by(Item, Type)  |> tally() |> spread(Type, n)  # |> tail() # within
+
+MASS::boxcox(rt ~ Type+Test+Subj, data=dat) # suggests log of rt; computed in preprocessing
+```
+
+The variables are as follows:
+
++ **Subj**:  unique participant identifier *(random effect)*
++ **Item**:  stimulus identified (i.e., unique object-location pair) *(random effect)*
++ **Group**: whether the participant is a child (-.5) or adult (+.5). *(fixed effect)*
++ **Test**:  whether the test was immediate (-.5) or one week later (+.5). *(fixed effect)*
++ **Type**:  whether the pair tested BC inference (-.5) or DE memory retrieval (+.5) *(fixed effect)*
++ **acc**:   whether the trial was answered correctly (0, 1) *(dependent variable)*
++ **rt**:    response time for accurate trials only, preprocessed for \>200ms *(dependent variable)*
++ **rt_l**:  log(rt)
+
+EJ: Fixed effects were contrast-coded manually to permit manipulation of the random effects structure.
+
+RK: I reverted to factors for now. If you use `c(-0.5, +.5)` to estimate difference between levels, you should also hard-code interactions. Otherwise, the indicator variables for higher-order interactions multiply to very small values, e.g. in your case: c(-0.5, +.5)^3`. I also prefer to start with factors and extract indicators from the model matrix. 
+
+EJ: A higher number of adults than children completed the tasks, but experiment drop-out was also higher for adults than children. The target *n* for each group was 130 complete datasets.
+
+## Descriptive statistics
+
+**Main effects**
+
+```{r all-trials-acc-desc-main}
+# By group / trial level
+dat |>
+  group_by(Group) |>
+  reframe(acc_mean = mean(acc), acc_sd = sd(acc), 
+          rt_mean = mean(rt, na.rm = TRUE), rt_sd = sd(rt, na.rm = TRUE),
+          lrt_mean = mean(lrt, na.rm = TRUE), lrt_sd = sd(lrt, na.rm = TRUE))
+
+# By test / trial level
+dat |>
+  group_by(Test) |>
+  reframe(acc_mean = mean(acc), acc_sd = sd(acc), 
+          rt_mean = mean(rt, na.rm = TRUE),  rt_sd = sd(rt, na.rm = TRUE),
+          lrt_mean = mean(lrt, na.rm = TRUE), lrt_sd = sd(lrt, na.rm = TRUE))
+
+# By pair type / trial level
+dat |>
+  group_by(Type) |>
+  reframe(acc_mean = mean(acc), acc_sd = sd(acc), 
+          rt_mean = mean(rt, na.rm = TRUE),  rt_sd = sd(rt, na.rm = TRUE),
+          lrt_mean = mean(lrt, na.rm = TRUE), lrt_sd = sd(lrt, na.rm = TRUE))
+```
+
+Relevant interaction effects
+
+```{r all-trials-acc-desc-int}
+# Group x Test
+dat |>
+  group_by(Group, Test) |>
+  reframe(acc_mean = mean(acc), acc_sd = sd(acc), 
+          rt_mean = mean(rt, na.rm = TRUE),  rt_sd = sd(rt, na.rm = TRUE),
+          lrt_mean = mean(lrt, na.rm = TRUE), lrt_sd = sd(lrt, na.rm = TRUE))
+
+# Group x Type
+dat |>
+  group_by(Group, Type) |>
+  reframe(acc_mean = mean(acc), acc_sd = sd(acc), 
+          rt_mean = mean(rt, na.rm = TRUE), rt_sd = sd(rt, na.rm = TRUE),
+          lrt_mean = mean(lrt, na.rm = TRUE), lrt_sd = sd(lrt, na.rm = TRUE))
+
+# Test x Type
+dat |>
+  group_by(Type, Test) |>
+  reframe(acc_mean = mean(acc), acc_sd = sd(acc), 
+          rt_mean = mean(rt, na.rm = TRUE),  rt_sd = sd(rt, na.rm = TRUE),
+          lrt_mean = mean(lrt, na.rm = TRUE), lrt_sd = sd(lrt, na.rm = TRUE))
+
+# 3-way
+dat |>
+  group_by(Group, Test, Type) |>
+  reframe(acc_mean = mean(acc), acc_sd = sd(acc), 
+          rt_mean = mean(rt, na.rm = TRUE),  rt_sd = sd(rt, na.rm = TRUE),
+          lrt_mean = mean(lrt, na.rm = TRUE), lrt_sd = sd(lrt, na.rm = TRUE))
+```
+
+# Save as input for Julia
+This file is used as input in Julia MixedModels.jl script **yx_1.qmd**
+
+```{r}
+write_feather(data.frame(dat), "../data/processed/memory_integration.arrow")
+```
+
+
+# Accuracy analysis
+
+## Contrasts and indicator variables
+
+```{r}
+contrasts(dat$Group) <- MASS::contr.sdif(2)
+contrasts(dat$Test) <- MASS::contr.sdif(2)
+contrasts(dat$Type) <- MASS::contr.sdif(2)
+
+mm <- model.matrix(~ 1 + Group*Test*Type, data=dat)
+attr(mm,"dimnames")[[2]] 
+dat$grp <- mm[,2]
+dat$tst <- mm[,3]
+dat$typ <- mm[,4]
+```
+
+
+## Model fitting
+
+```{r all-trials-acc-mod-fit}
+#| eval: false
+
+# Maximal model - SINGULAR FIT  
+system.time(
+all_acc_0 <- glmer(acc ~ 1 + Group*Test*Type + (1+Test*Type | Subj) + (1+Group*Test*Type | Item), 
+                        data = dat, family = "binomial", 
+                        control = glmerControl(calc.derivs = FALSE,
+                                               optimizer="bobyqa",
+                                               optCtrl=list(maxfun=2e5)))
+)
+
+save(all_acc_0, file = "../output/models/alltrials_acc0_rk.Rdata") 
+summary(all_acc_0)$varcor
+
+# Simplified model 1 - remove random effect correlations for items - SINGULAR FIT
+system.time(
+all_acc_1 <- glmer(acc ~ 1 + grp*tst*typ + (1+tst*typ | Subj) + (1+grp*tst*typ || Item), 
+                        data = dat, family = "binomial", 
+                        control = glmerControl(calc.derivs = FALSE,
+                                               optimizer="bobyqa", 
+                                               optCtrl=list(maxfun=2e5)))
+)
+
+save(all_acc_1, file = "../output/models/alltrials_acc1_rk.Rdata") 
+summary(all_acc_1)$varcor
+
+# Simplified model 2 - Simplify item random effects - remove three-way interaction - SINGULAR FIT
+system.time(
+all_acc_2 <- glmer(acc ~ 1 + grp*tst*typ + (1+tst*typ | Subj) + (1+grp*tst*typ - grp:tst:typ || Item), 
+                        data = dat, family = "binomial", 
+                        control = glmerControl(calc.derivs = FALSE,
+                                               optimizer="bobyqa", 
+                                               optCtrl=list(maxfun=2e5)))
+)
+
+save(all_acc_2, file = "../output/models/alltrials_acc2_rk.Rdata") 
+
+# Simplified model 3 - Simplify item random effects - remove 2-way group*pair_type (0 variance)
+system.time(
+all_acc_3 <- glmer(acc ~ 1 + grp*tst*typ + (1+tst*typ | Subj) + (1+grp*tst + tst*typ || Item),
+                        data = dat, family = "binomial", 
+                        control = glmerControl(calc.derivs = FALSE,
+                                               optimizer="bobyqa", 
+                                               optCtrl=list(maxfun=2e5)))
+
+)
+
+save(all_acc_3, file = "../output/models/alltrials_acc3_rk.Rdata") 
+```
+
+
+
+
+```
+             user   system   elapsed 
+model 0: 3047.159   43.011  3106.396 - overparameterized
+model 1:  661.821    8.571   671.584 
+model 2:  507.275    6.713   516.853 - overparameterized
+model 3:  297.643    5.647   304.848 
+``` 
+
+```{r}
+anova(all_acc_3, all_acc_2, all_acc_1, all_acc_0)
+```
+
+
+```
+          npar   AIC   BIC  logLik -2*log(L)   Chisq Df Pr(>Chisq)
+all_acc_3   24 10812 10987 -5381.9     10764                      
+all_acc_2   25 10814 10996 -5381.9     10764  0.0000  1     0.9999
+all_acc_1   26 10815 11004 -5381.5     10763  0.8629  1     0.3529
+all_acc_0   54 10835 11229 -5363.7     10727 35.5599 28     0.1542
+```
+
+## Final model
+
+```{r all-trials-acc-finalmod}
+# Inspect final model
+check_model(all_acc_3)
+plot(DHARMa::simulateResiduals(all_acc_3))
+
+# Summarise final model 
+all_acc_final <- all_acc_3
+summary(all_acc_final)
+
+# Save model output to table
+tidy(all_acc_final) |>
+  mutate(across(c(estimate, std.error, statistic), \(x) round(x, 2))) |>
+  mutate(across(c(p.value), \(x) round(x, 3))) |>  
+  write.csv("../output/tables/all_acc_mod_rk.csv", row.names = FALSE)
+
+# Follow-up contrasts 
+emmeans(all_acc_final, pairwise ~ grp|tst)
+emmeans(all_acc_final, pairwise ~ grp|typ)
+emmeans(all_acc_final, pairwise ~ typ|tst)
+```
+
+## Figure
+
+Plot raw data for reference.
+
+```{r all-trials-acc-plot}
+# Participant means
+Subj_M <- dat |>
+  group_by(Subj, Group, Test, Type) |>
+  summarise(ppt_mean = mean(acc)) 
+
+# Group means
+Group_M <- Subj_M |>
+  group_by(Group, Test, Type) |>
+  summarise(n = n(), group_acc = mean(ppt_mean, na.rm = TRUE), 
+            sd_acc = sd(ppt_mean, na.rm = TRUE)) |>
+  mutate(se_acc = sd_acc/sqrt(n)) 
+
+
+# Facet labels
+type_labs <- c("Memory (DE)", "Integration (BC)")
+group_labs <- c("Adults", "Children")
+
+# Plot
+ggplot(Subj_M, aes(x = Test, y = ppt_mean)) +
+  geom_bar(data = Group_M, aes(x = Test, y = group_acc, group = Type), 
+           stat = "identity", alpha = 0.1, width = 0.8) + 
+  geom_point(aes(group = Subj, colour = as.factor(Subj)), alpha = 0.4) + 
+  geom_path(aes(group = Subj, colour = as.factor(Subj)), alpha = 0.4) + 
+  geom_point(data = Group_M, aes(x = Test, y = group_acc, group = Type)) + 
+  geom_path(data = Group_M, aes(x = Test, y = group_acc, group = Type),
+            size = 1) +
+  scale_y_continuous(name = "Proportion correct", expand = c(0,0), 
+                     limits = c(0, 1.05)) +
+  scale_x_discrete(name = "Test", breaks = c(1,2), 
+                   labels = c("Immediate", "One week")) + 
+  geom_hline(yintercept = 0.5, linetype = "dashed", colour = "darkgrey") + 
+  facet_grid(Group ~ Type, labeller = labeller(Type = type_labs, 
+                                               Group = group_labs))+ 
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white"),
+        legend.position = "none", 
+        axis.line = element_line(colour = "black"),
+        axis.text = element_text(colour = "black"),
+        strip.text.x = element_text(face = "bold", colour = "black", 
+                                    hjust = 0.5, size = 12),
+        strip.text.y = element_text(face = "bold", colour = "black", 
+                                    hjust = 0, size = 12),
+ #       panel.spacing.x = unit(0, "points")
+ ) +
+ annotate("segment", x=-Inf, xend=Inf, y=-Inf, yend=-Inf)
+
+# Save
+ggsave("../output/figures/alltrials_acc_rk.png")
+```
+
+# RTs 
+
+The log-transformed option looks to be the best option for dealing with skewness.
+
+## Contrasts and indicator variables
+
+```{r}
+dat2 <- dat |> filter(!is.na(rt))
+
+contrasts(dat2$Group) <- MASS::contr.sdif(2)
+contrasts(dat2$Test)  <- MASS::contr.sdif(2)
+contrasts(dat2$Type)  <- MASS::contr.sdif(2)
+
+mm <- model.matrix(~ 1 + Group*Test*Type, data=dat2)
+attr(mm,"dimnames")[[2]] 
+dat2$grp <- mm[,2]
+dat2$tst <- mm[,3]
+dat2$typ <- mm[,4]
+```
+
+
+## Model fitting
+
+RK's selection strategy
+
+1. max (`all_RT_0`)
+2. remove item-related VC for `Group` (`all_RT_1_rk`)
+3. remove item-related VC for `Type x Test` (`all_RT_2_rk`)
+4. compare with Emma James's final LMM `all_RT_6`)
+
+## Maximal model `all_RT_0`
+
++ EJ: FAILED TO CONVERGE, SINGULAR FIT
++ RK: **All** models converge here, but all except model 6 are overparameterized (degenerate)
+
+```{r all-trials-rt-mod-fit}
+system.time(
+all_RT_0 <- lmer(log(rt) ~ 1 + Group*Test*Type + (1+Test*Type | Subj) + (1+Group*Test*Type | Item), 
+                 data = dat2, REML=FALSE, control=lmerControl(calc.derivs=FALSE))
+)
+
+isSingular(all_RT_0)     # TRUE
+summary(rePCA(all_RT_0)) # not ok
+VarCorr(all_RT_0)
+```
+
+No obvious problems, but very small item-related VC for `Group` 
+
+
+## Parsimonious model `all_RT_1_rk`
+
++ remove item-related VC for `Group` 
+
+```{r all-trials-rt-mod-fit}
+system.time(
+all_RT_1_rk <- lmer(log(rt) ~ 1 + Group*Test*Type + (1+Test*Type|Subj) + (1+Test*Type | Item), 
+                 data = dat2, REML=FALSE, control=lmerControl(calc.derivs=FALSE))
+)
+
+
+isSingular(all_RT_1_rk)     # FALSE
+summary(rePCA(all_RT_1_rk)) # not ok
+VarCorr(all_RT_1_rk)
+anova(all_RT_1_rk, all_RT_0)
+```
+
++ slightly overparameterized, but no loss of information (LRT)
+
+## Parsimonious model `all_RT_2_rk`
+
++ remove `Test x Type` from `Item`-RES; interaction terms are likely sources of overparameterization
+
+```{r}
+system.time(
+all_RT_2_rk <- lmer(log(rt) ~ 1 + Group*Test*Type + (1+Test*Type|Subj) + (1+Test+Type | Item),  
+                 data = dat2, REML=FALSE, control=lmerControl(calc.derivs=FALSE))
+)
+
+
+isSingular(all_RT_2_rk)     # FALSE
+summary(rePCA(all_RT_2_rk)) #  ok
+VarCorr(all_RT_2_rk)
+anova(all_RT_2_rk, all_RT_1_rk, all_RT_0)
+```
+
+Looking good!
+
++ no longer overparameterized
++ no loss of information
+
+## Emma James's final LMM `all_RT_6`
+
+This LMM is conveniently nested under LMM `m2_rt`
+
++ remove item-related CPs
+
+```{r}
+system.time(
+all_RT_6 <- lmer(log(rt)  ~ 1 + grp*tst*typ + (1+tst*typ|Subj) + (1 + tst + typ || Item), 
+                 data = dat2, REML=FALSE, control = lmerControl(calc.derivs=FALSE))  
+)
+isSingular(all_RT_6) # FALSE
+summary(rePCA(all_RT_6)) # ok
+VarCorr(all_RT_6)
+anova(all_RT_6, all_RT_2_rk, all_RT_1_rk, all_RT_0)
+```
+
++ AIC selects LMM `all_RT_2_rk`
++ BIC selects LMM `all_RT_6`
+
+# Some thoughts
+
+LMM `all_RT_2_rk` has 3 CPs parameters more than `all_RT_6` and a slightly better fit by AIC and slightly worse fit by BIC.  Final model selection depends on whether you have theoretical expectations about Item-related CPs. 
+
+Are slow/fast responders expected to show a small/large test effect, taking into account all of the other effects captured by the LMM? This could be a regression-to-the-mean effect. Slow subjects at immediate test tend to repond faster with delay (and vice versa).
+
+There is another option. The fixed effects reveal a crossover interaction for type x test for accuracy and rt: Overall BC is less accurate and slower than DC, there is a smaller loss of BC accuracy than DC accuracy from immediate to delayed, and BC elicts faster responses with delay whereas there is slowing for DC with delay. (Overall effect of test is not significant for rt.)  
+
+Thus, possibly the correlation parameter is a hint at a strategy effect. Faster response at delay for those subjects who did not remember to begin with. The negative correlation may pick up individual differences in "giving up". Could be followed up with a joint accuracy-rt analysis. I did not think this through carefully; it is just a hunch. You may also simply pick  LMM `all_RT_6` and be done. :)
+
+# Version info
+
+```{r sessionInfo}
+sessionInfo()
+```

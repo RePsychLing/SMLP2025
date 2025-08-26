@@ -1,0 +1,258 @@
+---
+title: "RePsychLing Ioannis Iliopoulos's 'P600_across_L1_and_L2'"
+author: "Reinhold Kliegl"
+date: today
+date-format: iso
+format: 
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    code-fold: false
+    number-sections: true
+    fig-width: 8
+    fig-height: 6
+    fig-format: svg
+editor_options: 
+  chunk_output_type: console
+engine: julia
+julia: 
+  exeflags: ["--project", "--threads=auto"]
+---
+
+```{julia}
+using AlgebraOfGraphics
+using AlgebraOfGraphics: density
+using Arrow
+using BoxCox
+using CairoMakie
+using CategoricalArrays
+using Chain
+using DataFrames
+using DataFrameMacros
+using MixedModels
+using MixedModelsExtras
+using MixedModelsMakie
+using RegressionFormulae
+using Random
+using RCall
+using StandardizedPredictors
+using StatsModels
+```
+
+# Data
+
+```{julia}
+dat = DataFrame(Arrow.Table("./data/P600.arrow"));
+describe(dat)
+```
+
+# Contrasts and centering
+
+```{julia}
+contrasts = Dict(
+  :Language => EffectsCoding(; levels=["DE", "EN"]),
+  :Condition => EffectsCoding(; levels=["grammatical", "ungrammatical"]),
+  :l2 => Center(),
+  :vf => Center()
+)
+```
+
+# LMMs
+
+```{julia}
+f1 = @formula value ~ 1 + Language * Condition + 
+                     (1 + Language * Condition | Subj) + (1 | Item)
+m1 = fit(MixedModel, f1, dat; contrasts)
+```
+
+```{julia}
+f2 = @formula value ~ 1 + (vf + l2) * Language * Condition + 
+                     (1 + Language * Condition | Subj) + (1 | Item)
+m2 = fit(MixedModel, f2, dat; contrasts)
+
+lrtest(m1, m2)
+```
+
+No evidence for relevance of covariates.
+
+```{julia}
+f3 = @formula value ~ 1 + Language * Condition + 
+                     (0 + Language / Condition | Subj) + (1 | Item)
+m3 = fit(MixedModel, f3, dat; contrasts)
+```
+
+# GoF stats
+
+```{julia}
+table =[];
+push!(table, m3);
+push!(table, m1);  
+push!(table, m2);
+
+model_data = 
+        gof_summary = let
+        mods = eval.(table)
+        DataFrame(;
+          dof=dof.(mods),
+          deviance=round.(deviance.(mods), digits=0),
+          AIC=round.(aic.(mods),digits=0),
+          BIC=round.(bic.(mods),digits=0)
+        )
+      end
+```
+
+# Diagnostics 
+
+## Residual-over-fitted plot
+
+Are residuals homoskedastic? Ideally, we should see a symmetric horizontal residual band of similar width across the fitted values.
+
+```{julia}
+#| code-fold: false
+#| label: fig-m1fittedresid
+#| fig-cap: Residuals versus fitted values for model m1
+
+CairoMakie.activate!(; type="png")
+scatter(fitted(m3), residuals(m3); alpha=0.3)
+```
+
+## Q-Q plot
+
+The plot of quantiles of model residuals over corresponding quantiles of the normal distribution should yield a straight line along the main diagonal.
+
+```{julia}
+#| code-fold: false
+#| label: fig-qqnormm1
+#| fig-cap: Quantile-quantile plot of the residuals for model m1 versus a standard normal
+
+CairoMakie.activate!(; type="png")
+qqnorm(
+  residuals(m3);
+  qqline=:none,
+  axis=(;
+    xlabel="Standard normal quantiles",
+    ylabel="Quantiles of the residuals from model m1",
+  ),
+)
+```
+
+Both diagnostic plots look really good.
+
+# Parametric bootstrap
+
+Here we
+
+  - generate a bootstrap sample
+  - compute shortest covergage intervals for the LMM parameters
+  - plot densities of bootstrapped parameter estimates for residual, fixed effects, variance components, and correlation parameters
+
+## Generate a bootstrap sample
+
+We generate 2500 samples for the 17 model parameters (4 fixed effects, 6 VCs, 6 CPs, and 1 residual).
+
+```{julia}
+samp = parametricbootstrap(MersenneTwister(1234321), 2500, m3;
+                           optsum_overrides=(; ftol_rel=1e-8));
+```
+
+```{julia}
+tbl = samp.tbl
+```
+
+## Shortest coverage interval
+
+```{julia}
+confint(samp)
+```
+
+We can also visualize the shortest coverage intervals for fixed effects with the `ridgeplot()` command:
+
+```{julia}
+#| code-fold: true
+#| label: fig-bsridge_m3
+#| fig-cap: Ridge plot of fixed-effects bootstrap samples from model m1L
+ridgeplot(samp; show_intercept=true)
+```
+
+## Comparative density plots of bootstrapped parameter estimates
+
+### Residual
+
+```{julia}
+#| code-fold: true
+#| label: fig_sigmadensity_m3
+#| fig-cap: '  Kernel density estimate from bootstrap samples of the residual standard  deviation for model m3'
+draw(
+  data(tbl) *
+  mapping(:σ => "Residual") *
+  density();
+  figure=(; size=(800, 400)),
+)
+```
+
+### Fixed effects and associated variance components (w/o GM)
+
+The shortest coverage interval for the `GM` ranges from x to x ms and the associate variance component from .x to .x. To keep the plot range small we do not include their densities here.
+
+```{julia}
+#| code-fold: true
+#| label: fig-betadensity_m3
+#| fig-cap: '  Kernel density estimate from bootstrap samples of the fixed effects for model  m3'
+draw(
+  data(tbl) *
+  mapping(
+    [:β2, :β3, :β4] .=> "Experimental effect size [ms]";
+    color=dims(1) =>
+    renamer(["Language effect", "Condition effect", "L x C interaction"]) =>
+    "Experimental effects",
+  ) *
+  density();
+  figure=(; size=(800, 350)),
+)
+```
+
+The densitiies correspond nicely with the shortest coverage intervals.
+
+```{julia}
+#| code-fold: true
+#| label: fig-vcsdensity_m3
+#| fig-cap: '  Kernel density estimate from bootstrap samples of the standard deviations for  model m3'
+draw(
+  data(tbl) *
+  mapping(
+    [:σ1, :σ2, :σ3, :σ4] .=> "Standard deviations [ms]";
+    color=dims(1) =>
+    renamer(["DE", "EN", "DE-gramm effect", "EN-gramm effect"]) =>
+    "Variance components",
+  ) *
+  density();
+  figure=(; size=(800, 350)),
+)
+```
+
+The VC are all very nicely defined.
+
+### Correlation parameters (CPs)
+
+```{julia}
+#| code-fold: true
+#| label: fig-corrdensity_m3
+#| fig-cap: '  Kernel density estimate from bootstrap samples of the standard deviations for  model m1L'
+draw(
+  data(tbl) *
+  mapping(
+    [:ρ1, :ρ2, :ρ3, :ρ4, :ρ5, :ρ6] .=> "Correlation";
+    color=dims(1) =>
+    renamer(["DE, EN", "DE, DE-gr", "EN, DE-gr",  "DE, EN-gr", "EN, EN_gr", "DE_gr, EN_gr"]) =>
+    "Correlation parameters",
+  ) *
+  density();
+  figure=(; size=(800, 350)),
+)
+```
+
+# Version
+```{julia}
+versioninfo()
+```

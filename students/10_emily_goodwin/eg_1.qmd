@@ -1,0 +1,118 @@
+---
+title: "Refitting Emily Goodwin's Model"
+author: "Reinhold Kliegl"
+date: today
+date-format: iso
+format: 
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    code-fold: false
+    number-sections: true
+    fig-width: 8
+    fig-height: 6
+    fig-format: svg
+editor_options: 
+  chunk_output_type: console
+engine: julia
+julia: 
+  exeflags: ["--project", "--threads=auto"]
+---
+
+
+# Setup
+
+## Packages
+
+```{julia}
+using Arrow
+using CairoMakie
+using DataFrames
+using MixedModels
+using MixedModelsExtras
+using MixedModelsMakie
+using RegressionFormulae
+using RCall
+using StatsModels
+```
+
+```{julia}
+#@isdefined(contrasts) || const contrasts = Dict{Symbol,Any}()
+#@isdefined(nAGQ) || const nAGQ = 1
+#@isdefined(progress) || const progress = false
+```
+
+## Data
+
+```{julia}
+dat = DataFrame(Arrow.Table("df.model_data_corpus.arrow"));
+
+
+# filter incorrect responses for rt analysis
+dat_rt = dropmissing(dat); 
+```
+
+# GLMM
+
+## Contrasts
+
+```{julia}
+contrasts = Dict(
+  :Group => SeqDiffCoding(; levels=["child", "adult"]),
+  :Test  => SeqDiffCoding(; levels=["immediate", "delayed"]),
+  :Type  => SeqDiffCoding(; levels=["BC", "DC"])
+)
+```
+
+## Model  
+
+```{julia}
+
+fit_corpusModel = 
+   let d = dat, 
+        ds = Bernoulli(),
+        f = @formula structure ~
+                       verbSense +
+                       themeGiven + recipientGiven +
+                       themePronominal + recipientPronominal +
+                       themeDefinite + recipientDefinite +
+                       recipientAnimacy +
+                       themeConcrete +
+                       recipientPerson +
+                       recipientNumber + themeNumber +
+                       previousStructure +
+                       lengthDifference +
+                       (1  | verbLemma);
+         fit(MixedModel, f, d, ds; nAGQ=1, progress=false)
+     end
+
+ issingular(fit_corpusModel)  # false
+ MixedModels.PCA(fit_corpusModel)  
+```  
+
+```{julia}
+cm1 = only(ranefinfo(fit_corpusModel))
+caterpillar!(Figure(; resolution=(800, 1200)), cm1)
+```
+
+## Residual diagnostics:  Q-Q plot: 
+
+```{julia}
+CairoMakie.activate!(; type="png")
+
+MixedModelsMakie.qqnorm(
+  residuals(fit_corpusModel);
+  qqline=:none,
+  axis=(;
+    xlabel="Standard normal quantiles",
+    ylabel="Quantiles of the residuals from model fit_corpusModel",
+  ),
+)
+```
+
+
+# Version
+```{julia}
+versioninfo()
+```

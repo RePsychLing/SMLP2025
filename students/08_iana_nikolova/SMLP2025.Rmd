@@ -1,0 +1,342 @@
+---
+title: "Letter identity span analysis"
+output: html_document
+date: "2025-08-12"
+---
+## Experiment description
+
+This study investigates letter identity span in Russian-speaking adults. 92 native Russian speakers participated in this study. The gaze-contingent moving window paradigm (McConkie & Rayner, 1975) was used. In the experimental conditions, participants were able to perceive only a restricted number of characters to the left and right of the fixation point during sentence reading. Characters outside this visible window were substituted with visually analogous letters. This window of visible characters dynamically shifted in accordance with the participants’ gaze direction.The main aim of the experiment was to estimate the letter identity span in Russian by comparing different window conditions and to determine how reading speed differs from the control condition without masking.
+
+In the code presented here, we analyze reading rate (measured in words per minute) as well as the number of regressions (regression count). The following questions arise in connection with the analysis:
+How should a three-way interaction in a model be correctly interpreted?
+How can differences between factor levels be tested when there are more than two levels?
+What is the proper way to compare all factor levels with each other (e.g., 6 pairwise comparisons for 4 levels and more)?
+Is the Poisson distribution appropriate for modeling the number of regressions, or would another distribution be more suitable?
+
+
+## Dataset Variables
+
+The dataset contains the following variables:
+
+- `id`: Participant ID.  
+- `list`: Experimental list.  
+- `window`: Size of the right side of the visible window (the left side was constant at 3 characters). A value of 0 indicates no masking.  
+- `wpm`: Reading rate measured in words per minute.  
+- `reg_count`: Number of regressive saccades during the trial.  
+- `index`: Sequential order of the trial within the recording session.  
+- `accuracy`: Participant’s response accuracy to comprehension questions (`1` = correct, `0` = incorrect, `-1` = no question in trial).  
+- `sentence_id`: Identifier of the presented sentence.  
+- `sentence`: Text of the presented sentence.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load Required Packages
+
+```{r load-packages, message=FALSE, warning=FALSE}
+library(lme4)
+library(lmerTest)
+library(remef)
+library(sjPlot)
+library(performance)
+library(DHARMa)
+library(MASS)
+library(moments)
+library(rempsyc)
+library(cowplot)
+library(htmlTable)
+library(flextable)
+library(tidyverse)
+```
+Uploading the file containing preprocessed data
+```{r load-data}
+data_LI <- read.table("prep_data.txt", header = TRUE, sep = "\t")
+```
+
+Convert Variables to Factors
+
+```{r convert-factors}
+data_LI <- data_LI %>%
+  mutate_at(c("id", "list", "window"), factor)
+```
+
+Reorder Factor Levels for 'window'
+
+```{r reorder-window}
+data_LI$window_reordered <- factor(data_LI$window, levels = c("12", "14", "16", "0"))
+```
+
+Define Function for Density and QQ Plots
+
+```{r define-function}
+compare_density_qq <- function(data, dv, transformation = log, trans_name = "log",
+                               text_coords_raw = c(x = -2, y_skew = 2, y_kurt = 2),
+                               text_coords_trans = c(x = -2, y_skew = 2, y_kurt = 2)) {
+  
+  # Convert dependent variable to symbol and string
+  dv_sym <- rlang::ensym(dv)
+  dv_string <- rlang::as_string(dv_sym)
+  
+  # Calculate skewness and kurtosis for raw data
+  skewness_raw <- skewness(data[[dv_string]], na.rm = TRUE) %>% round(2)
+  kurtosis_raw <- kurtosis(data[[dv_string]], na.rm = TRUE) %>% round(2)
+  
+  # Calculate skewness and kurtosis for transformed data
+  skewness_trans <- skewness(transformation(data[[dv_string]]), na.rm = TRUE) %>% round(2)
+  kurtosis_trans <- kurtosis(transformation(data[[dv_string]]), na.rm = TRUE) %>% round(2)
+  
+  # Density plots (raw and transformed)
+  density_raw <- data %>%
+    ggplot(aes(x = !!dv_sym, color = factor(window))) +
+    geom_density() +
+    theme_minimal() +
+    labs(title = paste("Without", trans_name, "transformation"))
+  
+  density_transformed <- data %>%
+    ggplot(aes(x = transformation(!!dv_sym), color = factor(window))) +
+    geom_density() +
+    theme_minimal() +
+    labs(title = paste("With", trans_name, "transformation"),
+         x = paste0(trans_name, "(", dv_string, ")"))
+  
+  # QQ plots (raw and transformed)
+  qq_raw <- data %>%
+    ggplot(aes(sample = !!dv_sym)) +
+    stat_qq() +
+    stat_qq_line() +
+    labs(title = paste("Without", trans_name, "transformation"),
+         x = "Theoretical Quantiles",
+         y = "Sample Quantiles") +
+    geom_text(x = text_coords_raw["x"], y = text_coords_raw["y_skew"],
+              label = paste("Skewness:", skewness_raw)) +
+    geom_text(x = text_coords_raw["x"], y = text_coords_raw["y_kurt"],
+              label = paste("Kurtosis:", kurtosis_raw)) +
+    theme_minimal()
+  
+  qq_transformed <- data %>%
+    ggplot(aes(sample = transformation(!!dv_sym))) +
+    stat_qq() +
+    stat_qq_line() +
+    labs(title = paste("With", trans_name, "transformation"),
+         x = "Theoretical Quantiles",
+         y = "Sample Quantiles") +
+    geom_text(x = text_coords_trans["x"], y = text_coords_trans["y_skew"],
+              label = paste("Skewness:", skewness_trans)) +
+    geom_text(x = text_coords_trans["x"], y = text_coords_trans["y_kurt"],
+              label = paste("Kurtosis:", kurtosis_trans)) +
+    theme_minimal()
+  
+  # Combine plots
+  plot_grid(density_raw, density_transformed, qq_raw, qq_transformed)
+}
+```
+
+## Reading rate
+Words per minute as a dependent variable
+```{r}
+data_LI_wpm <- data_LI %>% 
+  filter(is.na(wpm) == FALSE)
+
+# Appropriate transformation, if needed
+boxcox(wpm ~ window, data = data_LI_wpm)
+
+```
+
+
+Close to 0.5 -> sqrt transformation is suggested
+Comparing transformed and non-transformed data distributions
+
+```{r}
+compare_density_qq(
+  data_LI_wpm, 
+  wpm, 
+  sqrt, 
+  'sqrt',
+  text_coords_raw   = c(x = -2, y_skew = 400, y_kurt = 300), 
+  text_coords_trans = c(x = -2, y_skew = 21,  y_kurt = 17)
+)
+```
+
+The skewness is reduced as a result of transformation and the shape of the control condition distribution is more similar to normal -> using sqrt transformation
+
+## Fitting the model
+```{r}
+wpm_model_LI_1 <- lmer(
+  sqrt(wpm) ~ window + (1 + window | id) + (1 + window | sentence_id),
+  data = data_LI_wpm,
+  REML = FALSE
+)
+
+# The model has a singularity issue. 
+# Fitting a model with uncorrelated random slope and intercept (sentence_id)
+
+wpm_model_LI_1.1 <- lmer(
+  sqrt(wpm) ~ window + (1 + window | id) + (1 + window || sentence_id),
+  data = data_LI_wpm,
+  REML = FALSE
+)
+
+# The model failed to converge. Removing slope for sentence_id
+
+wpm_model_LI_2 <- lmer(
+  sqrt(wpm) ~ window + (1 + window | id) + (1 | sentence_id),
+  data = data_LI_wpm,
+  REML = FALSE
+)
+
+# The model has a singularity issue. 
+# Fitting a model with uncorrelated random slope and intercept (id)
+
+wpm_model_LI_2.1 <- lmer(
+  sqrt(wpm) ~ window + (1 + window || id) + (1 | sentence_id),
+  data = data_LI_wpm,
+  REML = FALSE
+)
+
+# The model failed to converge. Removing both slopes
+
+wpm_model_LI_3 <- lmer(
+  sqrt(wpm) ~ window + (1 | id) + (1 | sentence_id),
+  data = data_LI_wpm,
+  REML = FALSE
+)
+```
+## Assumptions
+```{r}
+check_model(wpm_model_LI_3,
+            panel = TRUE, 
+            check = c('normality', 'homogeneity', 'reqq'))
+
+```
+## Summary
+```{r}
+wpm_model_LI_0 <- lmer(sqrt(wpm) ~ 1 + (1 | id) + (1 | sentence_id),
+                    data = data_LI_wpm,
+                    REML = FALSE)
+
+anova(wpm_model_LI_0, wpm_model_LI_3, refit = FALSE)
+```
+The null model differs significantly 
+```{r}
+summary(wpm_model_LI_3)
+```
+
+## Contrasts
+```{r}
+contrasts(data_LI_wpm$window_reordered) <- contr.sdif(4)
+wpm_model_LI_4 <- lmer(sqrt(wpm) ~ window_reordered + (1 | id) + (1 | sentence_id),
+                    data = data_LI_wpm,
+                    REML = FALSE)
+summary(wpm_model_LI_4)
+```
+## Partial means
+```{r}
+data_LI_wpm$partial <- (keepef(wpm_model_LI_4, 
+                                 fix = c("window_reordered2-1", "window_reordered3-2", 
+                                         "window_reordered4-3"), 
+                                 keep.intercept = TRUE))^2
+means_wpm_LI <- data_LI_wpm %>% group_by(window_reordered) %>% 
+  summarise(M = mean(partial), SD = sd(partial))
+```
+```{r}
+data_LI_wpm %>% 
+  ggplot(aes(window_reordered, partial, group = 1)) +
+  stat_summary(fun = mean, geom = "point", size = 3) +
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2, linewidth = 1) +
+  stat_summary(aes(x = window_reordered), fun = mean, geom = "line", linewidth = 1) +
+  labs(x = "Window size", y = "Words per Minute") +
+  theme_minimal()
+```
+## Regression count
+```{r}
+data_LI_reg_c <- data_LI %>% 
+  filter(is.na(reg_count) == FALSE)
+unique(data_LI_reg_c$reg_count)
+```
+Poisson distribution can be appropriate for this kind of count data
+```{r}
+vcd::distplot(data_LI_reg_c$reg_count, type = "poisson")
+```
+The dots follow the line -> Poisson distribution is appropriate
+## Fitting a Poisson GLMM
+```{r}
+reg_c_glmm_LI_1 <- glmer(reg_count ~ window + (1 + window | id) + (1 + window | sentence_id), 
+                      data = data_LI_reg_c,
+                      family = 'poisson')
+```
+The model has a singularity issue. Fitting a model with uncorrelated random slope and intercept (sentence_id)
+```{r}
+reg_c_glmm_LI_1.1 <- glmer(reg_count ~ window + (1 + window | id) + (1 + window || sentence_id), 
+                      data = data_LI_reg_c,
+                      family = 'poisson')
+```
+```{r}
+reg_c_glmm_LI_2 <- glmer(reg_count ~ window + (1 + window | id) + (1 | sentence_id), 
+                      data = data_LI_reg_c,
+                      family = 'poisson')
+```
+```{r}
+reg_c_glmm_LI_2.1 <- glmer(reg_count ~ window + (1 + window || id) + (1 | sentence_id), 
+                      data = data_LI_reg_c,
+                      family = 'poisson')
+```
+```{r}
+reg_c_glmm_LI_3 <- glmer(reg_count ~ window + (1 | id) + (1 | sentence_id), 
+                      data = data_LI_reg_c,
+                      family = 'poisson')
+```
+## Assumptions
+```{r}
+check_model(reg_c_glmm_LI_3,
+            panel = TRUE, 
+            check = 'reqq',
+            residual_type = "normal")
+```
+```{r}
+simulateResiduals(reg_c_glmm_LI_3) %>% plot()
+```
+
+Overall, the assumptions are met
+
+## Summary
+```{r}
+reg_c_glmm_LI_0 <- glmer(reg_count ~ 1 + (1 | id) + (1 | sentence_id), 
+                      data = data_LI_reg_c,
+                      family = 'poisson')
+anova(reg_c_glmm_LI_0, reg_c_glmm_LI_3)
+```
+
+```{r}
+summary(reg_c_glmm_LI_3)
+```
+
+## Contrasts
+```{r}
+contrasts(data_LI_reg_c$window_reordered) <- contr.sdif(4)
+
+reg_c_glmm_LI_4 <- glmer(reg_count ~ window_reordered + (1 | id) + (1 | sentence_id), 
+                      data = data_LI_reg_c,
+                      family = 'poisson')
+summary(reg_c_glmm_LI_4)
+```
+
+## Partial means
+```{r}
+data_LI_reg_c$partial <- exp(keepef(reg_c_glmm_LI_4, 
+                                 fix = c("window_reordered2-1", "window_reordered3-2",
+                                         "window_reordered4-3"),
+                                 keep.intercept = TRUE))
+data_LI_reg_c %>% group_by(window_reordered) %>% 
+  summarise(M = round(mean(partial), 2),
+            SD = round(sd(partial), 1)) %>% htmlTable()
+```
+```{r}
+data_LI_reg_c %>% 
+  ggplot(aes(window_reordered, partial, group = 1)) +
+  stat_summary(fun = mean, geom = "point", size = 3) +
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2, linewidth = 1) +
+  stat_summary(aes(x = window_reordered), fun = mean, geom = "line", linewidth = 1) +
+  labs(x = "Window size", y = "Regression count") +
+  theme_minimal()
+```

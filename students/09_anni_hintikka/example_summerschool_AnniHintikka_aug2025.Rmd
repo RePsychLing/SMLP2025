@@ -1,0 +1,135 @@
+---
+title: 'Word recognition: orthographic and phonological similarity'
+author: "Anni Hintikka"
+date: "2025-08-18"
+output: html_document
+---
+
+# Background & variables
+
+## Theoretical background
+
+Cognates are words that have a similar orthographic and phonological form and (roughly) the same meaning between two or more languages. 
+
+For example the word *science* is a cognate between English and French. Cognates have varying degrees of orthographic and phonological similarity. For example, the word *science* (FR:*science*) is orthographically identical in English and in French, whereas *onion* (FR: *oignon*) is not. Similarly, the word *enemy* (FR: *ennemi*) is pronounced identically in both languages [ɛnəmi], [ɛnəmɪ], while the word *rumor* (FR: *rumeur*) sounds  more dissimilar between the languages: [ɹuːmə*], [ʁymœʁ].
+
+Cognate words are usually recognized faster and more accurately than non-cognate words. However, it is not yet clear how the degree of similarity affects cognate word recognition. My goal is to see how the degree of orthographic and phonological similarity affect cognate and non-cognate word recognition in both visual and auditory modalities among L1 Finnish learners of L3 French. The learners perform auditory and visual lexical decision tasks and their reaction time (as well as accuracy rates; not included in this example) is measured.
+
+The data is simulated for 60 participants.
+
+
+## These are my variables
+
+*participant
+There are 60 simulated participants.
+
+*modality
+The modality of presentation: visual (V) or auditory (A). This is why each word is repeated twice in the data.
+
+*ortho_French 
+Word/item to be recognized
+
+*inversed_aline
+The measure of phonological similarity, ranging from 0 to 1. 0 means total dissimilarity between phonological forms, 1 means the phonological forms are identical.
+
+*lev_similarity
+The measure of orhtographic similarity, ranging from 0 to 1. 0 means total dissimilarity between phonological forms, 1 means the phonological forms are identical. 
+*Please note that inversed_aline and lev_similarity are calculated differently; inversed_aline takes phonological features into account).* 
+
+*Please note that inversed_aline and lev_similarity are probably highly intercorrelated. This hasn't been adressed in this example, but it will probably cause multicollinearity problems. There are solutions to this, for example using residuals.*
+
+
+*type
+Whether a word is cognate or a non-cognate. For now, this is not considered in the analysis. **There are now 96 non-cognate items and 48 cognate items**, if this information somehow affects the interpretation/modedling. All cognates have an orthographic similarity above 0.5.
+
+*first_modality
+The participants are divided into two groups for the experiment. 30 participants have visual modality first (V) and 30 have auditory modality first (A). Not included in the model for now.
+
+*list
+This refers to the experimental list given to the participants. There are 3 different lists. For now, this is not considered in the analysis.
+
+*RT
+Reaction time: how long did it take for the participant to give a yes response after seeing or hearing a word. These are simulated. I simulated the RTs according to these expected results:
+*Auditory modality (A): Word recognition is 120 ms faster when words are phonologically more similar, 80 ms slower when words are orthographically more similar.*
+*Visual modality (V): Word recognition is 120 ms faster when words are orthographically more similar, 80 ms slower when words are phonologically more similar*
+
+#Summary statistics
+
+```{r}
+
+library(dplyr)
+library(ggplot2)
+library(readr)
+
+final_df <- read_csv("final_df.csv")
+
+#Overall summary
+summary(final_df$RT)
+
+# Boxplot of each participant's reaction times
+ggplot(final_df, aes(x = factor(participant), y = RT)) +
+  geom_boxplot(outlier.size = 1) +
+  labs(x = "Participant", y = "Reaction Time (ms)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+# Histogram of all reaction times
+ggplot(final_df, aes(x = RT)) +
+  geom_histogram(binwidth = 100, fill = "skyblue", color = "black") +
+  labs(x = "Reaction Time (ms)", y = "Count") +
+  theme_minimal()
+
+# RT by phonological similarity and modality
+ggplot(final_df, aes(x = inversed_aline, y = RT, color = modality)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "loess") +
+  labs(x = "Inverse ALINE", y = "RT (ms)") +
+  theme_minimal()
+
+# RT by orthographic similarity and modality
+ggplot(final_df, aes(x = lev_similarity, y = RT, color = modality)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "loess") +
+  labs(x = "Levenshtein similarity", y = "RT (ms)") +
+  theme_minimal()
+
+# This shows the high intercorrelation between phonological and orthographic similarity metrics - not yet considered in the modeling!
+cor(final_df$inversed_aline, final_df$lev_similarity)
+
+
+```
+
+# Fit of a LMM
+
+It is good to notice that for now, I'm looking at how the degree of orthographic and phonological similarity affects the recognition of **all** words, not only cognates (unlike in most previous cognate studies, where cognateness is usually a factorial variable). 
+
+```{r}
+library(lme4)
+library(lmerTest)
+
+model1 <- lmer(
+  RT ~ lev_similarity * inversed_aline * modality +
+    (1 | participant) + (1 | ortho_French),
+  data = final_df
+)
+
+summary
+
+summary(model1)
+anova(model1)
+
+
+
+```
+# My questions & comments
+
+1. Interactions in general: How to interpret interactions?
+Now there is a three-way interaction in my data, which might be hard to interpret. Should I try to avoid complex interactions altogether? Are there ways to interpret (complex) interactions in other ways?
+
+2. Interpretation of results/making sense of the output: I generally struggle with interpreting the results of a model - I'm not always sure what is important to look at in the output, what should I plot, etc.
+
+3. I have already looked into this a little, but if there are some other ways to go around the intercorrelation of the variables (in my case lev_similarity and inversed_aline). 
+
+
+
+

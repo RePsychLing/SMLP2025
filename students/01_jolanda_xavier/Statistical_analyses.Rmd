@@ -1,0 +1,1604 @@
+---
+title: "Statistical analyses"
+author: "Anonymous"
+date: "`r Sys.Date()`"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache = TRUE, message = TRUE, warning = FALSE, eval = FALSE)
+```
+
+# Statistical analyses: accentedness, comprehensibility, and intelligibility
+
+This document provides all the scripts and formulas used for the statistical analysis of accentedness, comprehensibility, and intelligibility.
+
+There are three sections and each one corresponds to the three global measurements of foreign accent.
+
+# How to navigate this document?
+
+It´s easy: simply open this document in RStudio and read through the comments. Then run each of the chunks in order to see the outcome.
+
+Note: even though we provide the required packages, some additional installation of packages might be needed depending on your OS (please, see CRAN for more information).
+
+**Before running each of the chunks, please download the folder Code to your Desktop. It is important that the .Rmd file, the .xlxs, and the .rds files are in the same folder, otherwise you will be unable to run the code and see the statistical results.**
+
+## Accentedness 
+
+This section provides the statistics used for accentedness ratings. The descriptive statistics for accentedness can be found in this folder, document "Descriptives.docx".
+
+```{r}
+#load required packages (make sure you install.package first, preferrably in the console, otherwise it can damage the document. The code is provided below)
+
+#install.packages(c(
+#  "tidyverse", "hrbrthemes", "viridis", "ggplot2", "dplyr",
+#  "broom", "ggpubr", "jtools", "DHARMa", "emmeans", "flextable",
+#  "etable", "xtable", "stargazer", "compare", "sjPlot",
+#  "report", "gtsummary", "magrittr", "lmerTest", "lme4", "merDeriv", "parameters", "psych", "request", "sessioninfo"
+#)), repos = "https://cloud.r-project.org") - Put this code in console and press enter before loading the libraries
+
+library(tidyverse)
+library(hrbrthemes)
+library(viridis)
+library(ggplot2)
+library(dplyr)
+library(broom)
+library(ggpubr)
+library(jtools)
+library(DHARMa)
+library(emmeans)
+library(tidyverse)
+library(flextable)
+library(etable)
+library(xtable)
+library(stargazer)
+library(compare)
+library(emmeans)
+library(sjPlot)
+library(report)
+library(gtsummary)
+library(readxl)
+library(magrittr)
+library(lmerTest)
+library(merDeriv)
+library(parameters)
+library(psych)
+library(sessioninfo)
+```
+
+```{r}
+#read the file and assign it to a variable (will open an interactive datatable below) (IMPORTANT: please add the path to your file inside the read_excel function. A hypothetical example is provided below)
+accent  <-  read_excel("/Users/REPLACE_WITH_YOUR_NAME/Desktop/Rdm/Task4_accent.xlsx")
+```
+
+```{r}
+#number the items inside the spreadsheet
+accent <- accent %>%
+  mutate(item = as.integer(factor(`Spreadsheet: audio`)))
+```
+
+```{r}
+#number the raters
+accent <- accent %>%
+  mutate(rater = as.integer(factor(`Participant Public ID`)))
+```
+
+```{r}
+#you can check the summary of the data
+summary(accent)
+class(accent)
+```
+
+```{r}
+#convert character to factor variable
+
+accent$Con_type <- as.factor(accent$Con_type)
+class(accent$Con_type)
+
+accent$Condition <- as.factor(accent$Condition)
+class(accent$Condition) 
+
+accent$Target_word <- as.factor(accent$Target_word)
+class(accent$Target_word) 
+
+accent$Vowel_quality <- as.factor(accent$Vowel_quality)
+class(accent$Vowel_quality) 
+
+accent$Stress <- as.factor(accent$Stress)
+class(accent$Stress) 
+
+accent$item <- as.factor(accent$item)
+class(accent$item)
+
+accent$rater <- as.factor(accent$rater)
+class(accent$rater)
+```
+
+```{r}
+#reorder intercept for groups
+accent$Condition<- relevel(accent$Condition, "baseline")
+levels(accent$Condition)
+
+accent$Con_type<- relevel(accent$Con_type, "narrative")
+levels(accent$Con_type)
+
+accent$Target_word<- relevel(accent$Target_word, "more_nasal")
+levels(accent$Target_word)
+
+accent$Vowel_quality<- relevel(accent$Vowel_quality, "baseline")
+levels(accent$Vowel_quality)
+
+accent$Stress<- relevel(accent$Stress, "nasals")
+levels(accent$Stress)
+```
+
+```{r}
+#calculate simple means (shows a separate object in Global environment)
+means <- accent %>%
+  group_by(Condition, Con_type, Target_word, Vowel_quality) %>%
+  summarise_at(.vars = c("Response"), .funs = mean, na.rm = TRUE) %>%
+  arrange(Condition, Con_type, Target_word, Vowel_quality)
+```
+
+```{r}
+#plot the means (jitter plot)
+accent %>%
+  ggplot(aes(x=Condition, y=Response, fill=Condition)) +
+  geom_boxplot() +
+  scale_fill_viridis(discrete = TRUE, alpha=0.6) +
+  geom_jitter(color="black", size=0.4, alpha=0.9) +
+  theme_ipsum() +
+  theme(
+    legend.position="none",
+    plot.title = element_text(size=11)
+  ) +
+  ggtitle("Accentedness ratings") +
+  xlab("")
+```
+
+```{r}
+#load the dataset for Cronbach´s alpha calculation
+alpha_accent <-  read_excel("/Users/REPLACE_WITH_YOUR_NAME/Desktop/Rdm/Alpha_Task4_accent.xlsx")
+```
+
+```{r}
+#calculate Cronbach´s alpha for accentedness ratings
+#raw alpha 0.93(excellent), std.alpha (0.93) excellent
+alpha(alpha_accent[, -1], na.rm = TRUE) 
+```
+
+```{r}
+#calculate ICC (Interclass correlation)
+ICC(alpha_accent[, -1]) 
+```
+
+```{r load-model}
+#To test the effect of condition (group) based on nasality, vowel quality, type of production (isolated vs. narrative), and vowel reduction (stress) (in short, all the variables), we fitted a full model with (model1) and without interactions (model2):
+
+#Full model:
+#model1 <- lmer(data = accent, formula = Response ~ #Condition*Con_type*Target_word*Vowel_quality*Stress + (1|item) + (1|rater))
+#Response = accentedness ratings
+#Condition = target group, e.g., baseline (EP), Int_TL (Intermediate non-target-like Ukrainian), Adv_TL_f (Advanced target-like filler)
+#Con_type = isolated and narrative productions
+#Target_word = refers to target nasality (more nasal vowels vs. less nasal vowels); word_stress - to words with oral vowels
+#Vowel_quality = type of vowel quality; e.g., TL (target-like), NTL (non-target-like), TL_f(target-like filler)
+#Stress = refers to the type of vowel reduction; nasals refers to words with nasal vowels and no vowel reduction; reduction - words with vowel reduction; no_reduction - words without vowel reduction
+#Since the model was too heavy to handle for the .Rmd file, we re-fitted the model and R and saved it.
+model1 <- readRDS("model1.rds")
+```
+
+```{r}
+#model2 <- lmer(data = accent, formula = Response ~ #Condition+Con_type+Target_word+Vowel_quality+Stress + (1|item) + (1|rater))
+model2 <- readRDS("model2.rds")
+```
+
+```{r}
+anova(model1, model2) #testing model fit: model 1 is more suitable
+```
+
+```{r}
+summary(model1)
+#Since model 1 is a bit too heavy, so we needed to drop some factors and start from a very simple regression analysis.
+```
+
+```{r}
+#Let´s see the simple mod0 which analyses the effect of condition (e.g., baseline, Int_TL_UKR) on the ratings, with speaker and item as random effects:
+#mod0 <- lmer(data = accent, formula = Response ~ Condition*(1|item) + (1|rater))
+#pre-fitted model
+mod0 <- readRDS("mod0.rds")
+```
+
+```{r}
+#mod0_1 <- lmer(data = accent, formula = Response ~ Condition+(1|item) + (1|rater))
+mod0_1 <- readRDS("mod0_1.rds")
+```
+
+```{r}
+anova(mod0, mod0_1) #same
+```
+
+```{r}
+summary(mod0) #this model shows an overall significant difference between the rated conditions, except for the Adv_TL condition for Ukrainian
+```
+
+```{r}
+tab_model(mod0)
+```
+
+```{r}
+parameters::model_parameters(mod0)
+```
+
+```{r}
+#Perform an emmeans post-hoc test
+library(emmeans)
+#emm0 <- emmeans(mod0, ~ Condition)
+emm0 <- readRDS("emm0.rds")
+emm0
+```
+
+```{r}
+#Now, we need to see if the ratings were different in words produced isolation and inside a narrative.
+#For this, we need to add a Con_type variable (two levels: isolated vs. narrative) to the above mentioned model:
+#mod1 <- lmer(data = accent, formula = Response ~ Condition*Con_type + (1|item) + (1|rater))
+mod1 <- readRDS("mod1.rds")
+```
+
+```{r}
+#mod1_0 <- lmer(data = accent, formula = Response ~ Condition+Con_type + (1|item) + (1|rater))
+mod1_0 <- readRDS("mod1_0.rds")
+```
+
+```{r}
+anova(mod1, mod1_0) #model fit:mod1
+```
+
+```{r}
+summary(mod1)
+```
+
+```{r}
+tab_model(mod1) #the model results show no significant difference between the ratings of word produced in isolated vs. narrative condition
+```
+
+```{r}
+parameters::model_parameters(mod1)
+```
+
+```{r}
+#simplified model: the same could be performed with only Con_type as a fixed effect
+#m1 <- lmer(data = accent, formula = Response ~ Con_type + (1|item) + (1|rater))
+m1 <- readRDS("m1.rds")
+```
+
+```{r}
+tab_model(m1) #no significant effects either
+```
+
+```{r}
+#perform an emmeans post-hoc test
+#library(emmeans)
+#emm1 <- emmeans(m1, ~ Con_type)
+emm1 <- readRDS("emm1.rds")
+emm1
+```
+
+```{r}
+#pairwise comparison
+pairs(emm1)
+```
+
+```{r}
+#second post hoc test
+#emm2 <- emmeans(mod1, ~ Condition*Con_type)
+emm2 <- readRDS("emm2.rds")
+emm2
+```
+
+```{r}
+#After that, we need to check if there was an effect of nasality on the ratings, so we add Target_word or the type of nasal (word_stress means words with oral vowels only)
+#note: we first performed the model with isolated vs. narrative (Con_type), but decided to drop it since it showed no statistical difference in the previous model
+#mod2 <- lmer(data = accent, formula = Response ~ Condition*Target_word + (1|item) + (1|rater))
+mod2 <- readRDS("mod2.rds")
+```
+
+```{r}
+#mod2_0 <- lmer(data = accent, formula = Response ~ Condition+Target_word + (1|item) + (1|rater))
+mod2_0 <- readRDS("mod2_0.rds")
+```
+
+```{r}
+anova(mod2, mod2_0) #model fit:mod2
+```
+
+```{r}
+summary(mod2)
+```
+
+```{r}
+tab_model(mod2) #no significant difference when compared the nasal vowels vs oral vowels for the type of vowel
+```
+
+```{r}
+parameters::model_parameters(mod2)
+```
+
+```{r}
+#additional model parameter: we can only check the effect of more_nasal, less_nasal, and word_stress (oral vowels) on the rating of accentedness (a very simple model)
+#m2 <- lmer(data = accent, formula = Response ~ Target_word + (1|item) + (1|rater))
+m2 <- readRDS("m2.rds")
+```
+
+```{r}
+tab_model(m2) #if checked separately, there is an effect of the type of nasal/oral on the ratings
+```
+
+```{r}
+#check parameters for m2
+parameters::model_parameters(m2)
+```
+
+```{r}
+#perform an emmeans post-hoc test
+#library(emmeans)
+#emm3 <- emmeans(mod2, ~ Condition*Target_word)
+emm3 <- readRDS("emm3.rds")
+emm3
+```
+
+```{r}
+#emm4 <- emmeans(m2, ~ Target_word)
+emm4 <- readRDS("emm4.rds")
+emm4
+```
+
+```{r}
+#pairwise comparison 
+pairs(emm4)
+```
+
+```{r}
+#After checking the nasality, we need to replace to test the same hypothesis but now with vowel quality
+#hence, we replace Target_word (nasality) with Vowel_quality
+#same dropping of Con_type as in the previous
+#mod3 <- lmer(data = accent, formula = Response ~ Vowel_quality + (1|item) + (1|rater)) #showed significant difference
+mod3 <- readRDS("mod3.rds")
+```
+
+```{r}
+#mod3_0 <- lmer(data = accent, formula = Response ~ Condition+Vowel_quality + (1|item) + (1|rater))
+mod3_0 <- readRDS("mod3_0.rds")
+```
+
+```{r}
+#mod3_1 <- lmer(data = Task4_accent, formula = Response ~ Condition*Vowel_quality + (1|item) + (1|rater))
+mod3_1 <- readRDS("mod3_1.rds")
+```
+
+```{r}
+anova(mod3_0, mod3_1) #model fit:mod3_1
+```
+
+```{r}
+summary(mod3_1)
+```
+
+```{r}
+tab_model(mod3_1) 
+```
+
+```{r}
+parameters::model_parameters(mod3_1)
+```
+
+In this model, the results do not show the statistics for the TL vs. NTL target vowels. Thus, we are reporting the statistical results of mod3 and the emmeans pairwise analysis applied to the mod3_1.
+```{r}
+#emmeans post hoc test
+#emm5 <- emmeans(mod3_1, ~ Vowel_quality)
+emm5 <- readRDS("emm5.rds")
+emm5
+```
+
+```{r}
+#pairwise emmeans comparison
+pairs(emm5)
+```
+
+```{r}
+#Finally, we need to check if there is an overall difference in how oral and nasal vowels were rated, the former with and without reduction
+#for this, we add Stress variable and remove Vowel_quality. We can also drop the condition in which it was produced, since it is not relevant for this analysis
+#mod4 <- lmer(data = accent, formula = Response ~ Condition*Stress + (1|item) + (1|rater))
+mod4 <- readRDS("mod4.rds")
+```
+
+```{r}
+#mod4_0 <- lmer(data = accent, formula = Response ~ Condition+Stress + (1|item) + (1|rater))
+mod4_0 <- readRDS("mod4_0.rds")
+```
+
+```{r}
+anova(mod4, mod4_0) #model fit:mod4
+```
+
+```{r}
+summary(mod4)
+```
+
+```{r}
+tab_model(mod4) #the vowel reduction had no significant effect on the ratings of accentedness
+```
+
+```{r}
+parameters::model_parameters(mod4)
+```
+
+```{r}
+report(mod4)
+```
+
+```{r}
+#we could also simplify the previous model by including only the Stress and excluding condition
+#mod5 <- lmer(data = accent, formula = Response ~ Stress + (1|item) + (1|rater))
+mod5 <- readRDS("mod5.rds")
+```
+
+```{r}
+tab_model(mod5)
+```
+
+```{r}
+parameters::model_parameters(mod5) #no significant differences for ratings of words produced with or without vowel reduction
+```
+
+```{r}
+#emmeans post hoc
+#emm6 <- emmeans(mod4, ~ Condition*Stress)
+emm6 <- readRDS("emm6.rds")
+emm6
+```
+
+```{r}
+#emm7 <- emmeans(mod5, ~ Stress)
+emm7 <- readRDS("emm7.rds")
+emm7
+```
+
+```{r}
+#emmeans pairwise comparison
+pairs(emm7)
+```
+
+In sum, the results indicated that there was a significant difference for the type of condition (TL, NTL etc.), nasality in vowels and vowel quality on the ratings of accentedness
+No significant difference was spotted for the words produced in isolated or narrative condition, nor it had an effect on words with or without vowel reduction.
+
+## Comprehensibility
+
+This section provides the statistics used for comprehensibility ratings. The descriptive statistics for comprehensibility can be found in this folder, document "Descriptives.docx".
+
+Since we have previously loaded all the required packages, we can jump directly into the statistical analysis.
+
+```{r}
+#read a file and assign it to a variable
+comp  <-  read_excel("/Users/REPLACE_WITH_YOUR_NAME/Desktop/Rdm/Task4_comp.xlsx")
+```
+
+```{r}
+#number the items inside the spreadsheet
+comp <- comp %>%
+  mutate(item = as.integer(factor(`Spreadsheet: audio`)))
+```
+
+```{r}
+#number the raters
+comp <- comp %>%
+  mutate(rater = as.integer(factor(`Participant Public ID`)))
+```
+
+```{r}
+#you can check the summary of the data
+summary(comp)
+class(comp)
+```
+
+```{r}
+#convert character to factor variable 
+comp$Con_type <- as.factor(comp$Con_type)
+class(comp$Con_type)
+
+comp$Condition <- as.factor(comp$Condition)
+class(comp$Condition) 
+
+comp$Target_word <- as.factor(comp$Target_word)
+class(comp$Target_word) 
+
+comp$Vowel_quality <- as.factor(comp$Vowel_quality)
+class(comp$Vowel_quality) 
+
+comp$Stress <- as.factor(comp$Stress)
+class(comp$Stress) 
+
+comp$item <- as.factor(comp$item)
+class(comp$item) 
+
+comp$rater <- as.factor(comp$rater)
+class(comp$rater) 
+```
+
+```{r}
+#reorder intercept for groups
+comp$Con_type<- relevel(comp$Con_type, "narrative")
+levels(comp$Con_type)
+
+comp$Target_word<- relevel(comp$Target_word, "more_nasal")
+levels(comp$Target_word)
+
+comp$Vowel_quality<- relevel(comp$Vowel_quality, "baseline")
+levels(comp$Vowel_quality)
+
+comp$Stress<- relevel(comp$Stress, "nasals")
+levels(comp$Stress)
+
+comp$Condition<- relevel(comp$Condition, "baseline")
+levels(comp$Condition)
+```
+
+```{r}
+#calculate simple means (shows a separate object in Global environment)
+means <- comp %>%
+  group_by(Condition, Con_type, Target_word, Vowel_quality, Stress) %>%
+  summarise(Response = mean(Response, na.rm = TRUE)) %>%
+  arrange(desc(Response))  # Reorder with custom logic
+```
+
+```{r}
+#plot the means (jitter plot)
+library(viridis) #load these two packages if there is an error in processing the plot
+library(hrbrthemes)
+comp %>%
+  ggplot(aes(x=Condition, y=Response, fill=Condition)) +
+  geom_boxplot() +
+  scale_fill_viridis(discrete = TRUE, alpha=0.6) +
+  geom_jitter(color="black", size=0.4, alpha=0.9) +
+  theme_ipsum() +
+  theme(
+    legend.position="none",
+    plot.title = element_text(size=11)
+  ) +
+  ggtitle("Comprehensibility ratings") +
+  xlab("")
+
+```
+
+```{r}
+#load the dataset for Cronbach´s alpha calculation
+alpha_comp <- read_excel("/Users/REPLACE_WITH_YOUR_NAME/Desktop/Rdm/Alpha_Task4_compr.xlsx")
+```
+
+```{r}
+#calculate Cronbach´s alpha for comprehensibility ratings
+#raw alpha 0.78(acceptable), std.alpha (0.81) good
+library(psych) #load this package in case it shows error
+alpha(alpha_comp[, -1], na.rm = TRUE) 
+```
+
+```{r}
+#calculate ICC (Interclass correlation)
+ICC(alpha_comp[, -1]) 
+```
+
+```{r load-model-1}
+#To test the effect of condition based on nasality, vowel quality, type of production (isolated vs. narrative), and vowel reduction (stress), we fitted a full model with all the predictors. Similarly to the accentedness rating, this model was very heavy to load and not very efficient for the onterpretation of the final results. Hence, we opted to split it in the following analysis by focusing on each of the fixed (independent) variaable separately.
+#library(lmerTest)
+#model1_c <- lmer(data = Task4_comp, formula = Response ~ Condition*Con_type*Target_word*Vowel_quality*Stress + (1|item) + (1|rater))
+model1_c <- readRDS("model1_c.rds")
+```
+
+```{r}
+#model2_c <- lmer(data = Task4_comp, formula = Response ~ Condition+Con_type+Target_word+Vowel_quality+Stress + (1|item) + (1|rater))
+model2_c <- readRDS("model2_c.rds")
+```
+
+```{r}
+anova(model1_c, model2_c) #testing model fit: model 1_c is more suitable
+summary(model1_c)
+#As mentioned previously, model 1_c  and model2_c are a bit too heavy, so we need to drop some factors and start from a very simple regression analysis
+```
+
+```{r}
+#mod0: let´s see the simple mod0 which analyses the effect of condition (e.g., baseline, Int_TL_UKR) on the ratings of comprehensibility, with speaker and item as random effects
+#mod0_c <- lmer(data = Task4_comp, formula = Response ~ Condition*(1|item) + (1|rater))
+mod0_c <- readRDS("mod0_c.rds")
+```
+
+```{r}
+#mod0_1_c <- lmer(data = Task4_comp, formula = Response ~ Condition+(1|item) + (1|rater))
+mod0_1_c <- readRDS("mod0_1_c.rds")
+```
+
+```{r}
+anova(mod0_c, mod0_1_c) #same
+summary(mod0_c) #this model shows significant difference only for Adv_NTL_f, Adv_NTL, Int_NTL, Int_NTL_f, which means that all the TL conditions had no significant differences
+```
+
+```{r}
+#library(sjPlot)
+tab_model(mod0_c)
+```
+
+```{r}
+#also install.package("merDeriv) to compute CI (no need if the system shows no errors)
+#library(merDeriv)
+#library(parameters)
+#library(xtable)
+parameters::model_parameters(mod0_c)
+```
+
+```{r}
+#emmeans post hoc
+#em0 <- emmeans(mod0_c, ~ Condition)
+em0 <- readRDS("em0.rds")
+em0
+```
+
+```{r}
+#now, let´s see how the ratings had significant differences in words produced isolation and inside a narrative
+#for this, we need to add a Con_type variable (two levels: isolated vs. narrative) to the above mentioned model
+#mod1_c <- lmer(data = Task4_comp, formula = Response ~ Condition*Con_type + (1|item) + (1|rater))
+mod1_c <- readRDS("mod1_c.rds")
+```
+
+```{r}
+#mod1_0_c <- lmer(data = Task4_comp, formula = Response ~ Condition+Con_type + (1|item) + (1|rater))
+mod1_0_c <- readRDS("mod1_0_c.rds")
+```
+
+```{r}
+anova(mod1_c, mod1_0_c) #model fit:mod1
+```
+
+```{r}
+summary(mod1_c)
+```
+
+```{r}
+tab_model(mod1_c) #the model results showed significant differences for words produced in isolated vs. narrative condition, with words produced in isolation being on average more comprehensible
+```
+
+```{r}
+parameters::model_parameters(mod1_c)
+```
+
+```{r}
+#the same could be performed with only Con_type as a fixed effect
+#m1_c <- lmer(data = Task4_comp, formula = Response ~ Con_type + (1|item) + (1|rater))
+m1_c <- readRDS("m1_c.rds")
+```
+
+```{r}
+tab_model(m1_c) #same significant effect
+```
+
+```{r}
+#emmeans post hoc
+#em1 <- emmeans(mod1_c, ~ Condition*Con_type)
+em1 <- readRDS("em1.rds")
+em1
+```
+
+```{r}
+#em2 <- emmeans(m1_c, ~ Con_type)
+em2 <- readRDS("em2.rds")
+em2
+```
+
+```{r}
+#pairwise emmeans
+pairs(em2)
+```
+
+
+```{r}
+#after that, we need to check if there was an effect of nasality on the ratings, so we add Target_word or the type of nasal (word_stress means words with oral vowels only)
+#note: we first performed the model with isolated vs. narrative (Con_type), but decided to drop it since it showed no statistical difference in the previous model
+#mod2_c <- lmer(data = Task4_comp, formula = Response ~ Condition*Target_word + (1|item) + (1|rater))
+mod2_c <- readRDS("mod2_c.rds")
+```
+
+```{r}
+#mod2_0_c <- lmer(data = Task4_comp, formula = Response ~ Condition+Target_word + (1|item) + (1|rater))
+mod2_0_c <- readRDS("mod2_0_c.rds")
+```
+
+```{r}
+anova(mod2_c, mod2_0_c) #model fit:mod2
+```
+
+```{r}
+summary(mod2_c)
+```
+
+```{r}
+tab_model(mod2_c) #significant difference only for oral vowels, which were considered as more comprehensible
+```
+
+```{r}
+parameters::model_parameters(mod2_c)
+```
+
+```{r}
+#additional model parameter: we can only check the effect of more_nasal, less_nasal, and word_stress (oral vowels) on the rating of accentedness (a very simple model)
+#m2_c <- lmer(data = Task4_comp, formula = Response ~ Target_word + (1|item) + (1|rater))
+m2_c <- readRDS("m2_c.rds")
+```
+
+```{r}
+tab_model(m2_c) #if checked separately, showed significant differences for the words with less nasality, which were rated as less comprehensible; no significant effect on the words with oral vowels
+```
+
+```{r}
+#post hoc test
+#em3 <- emmeans(mod2_c, ~ Condition*Target_word)
+em3 <- readRDS("em3.rds")
+em3
+```
+
+```{r}
+#em4 <- emmeans(m2_c, ~ Target_word)
+em4 <- readRDS("em4.rds")
+em4
+```
+
+```{r}
+#pairwise comparison
+pairs(em4)
+```
+
+```{r}
+#after checking the nasality, we need to replace to test the same hypothesis but now with vowel quality
+#hence, we replace Target_word (nasality) with Vowel_quality
+#same dropping of Con_type as in the previous
+#mod3_c <- lmer(data = Task4_comp, formula = Response ~ Vowel_quality + (1|item) + (1|rater)) #showed significant difference for vowels with NTL and NTL_f vowel quality (less comprehensible)
+mod3_c <- readRDS("mod3_c.rds")
+```
+
+```{r}
+#mod3_0_c <- lmer(data = Task4_comp, formula = Response ~ Condition+Vowel_quality + (1|item) + (1|rater))
+mod3_0_c <- readRDS("mod3_0_c.rds")
+```
+
+```{r}
+#mod3_1_c <- lmer(data = Task4_comp, formula = Response ~ Condition*Vowel_quality + (1|item) + (1|rater))
+mod3_1_c <- readRDS("mod3_1_c.rds")
+```
+
+```{r}
+anova(mod3_0_c,mod3_1_c)
+```
+
+```{r}
+#model fit:same
+anova(mod3_c, mod3_0_c) 
+```
+
+```{r}
+#significant results
+summary(mod3_1_c) 
+```
+
+```{r}
+#for some reason, this model does not show the results for Vowel_quality when combined with Condition, so we need to simplify it by removing Condition
+tab_model(mod3_1_c) 
+```
+
+```{r}
+parameters::model_parameters(mod3_1_c)
+```
+
+```{r}
+#provides results for the vowel quality per TL vs. NTL stimuli
+parameters::model_parameters(mod3_c)
+```
+
+```{r}
+#post hoc
+#em5 <- emmeans(mod3_c ~ Vowel_quality)
+em5 <- readRDS("em5.rds")
+em5
+```
+
+```{r}
+#pairwise emmeans
+pairs(em5)
+```
+
+```{r}
+#finally, we need to check if there is an overall difference in how oral and nasal vowels were rated, the former with and without reduction
+#for this, we add Stress variable and remove Vowel_quality. We can also drop the condition in which it was produced, since it is not relevant for this analysis
+#mod4_c <- lmer(data = Task4_comp, formula = Response ~ Condition*Stress + (1|item) + (1|rater))
+mod4_c <- readRDS("mod4_c.rds")
+```
+
+```{r}
+#mod4_0_c <- lmer(data = Task4_comp, formula = Response ~ Condition+Stress + (1|item) + (1|rater))
+mod4_0_c <- readRDS("mod4_0_c.rds")
+```
+
+```{r}
+anova(mod4_c, mod4_0_c) #model fit:mod4_c
+```
+
+```{r}
+summary(mod4_c)
+```
+
+```{r}
+tab_model(mod4_c) #showed significant differences for the words with and without vowel reduction; on average, words with no vowel reduction (e.g, galinhas, cachecol) were rated lower on comprehensibility (95.2) compared with words that have vowel reduction (e.g, cachecol; 95,83)
+```
+
+```{r}
+parameters::model_parameters(mod4_c)
+```
+
+```{r}
+report(mod4_c)
+#we could also simplify the previous model by including only the Stress and excluding condition
+```
+
+```{r}
+#mod5_c <- lmer(data = Task4_comp, formula = Response ~ Stress + (1|item) + (1|rater))
+mod5_c <- readRDS("mod5_c.rds")
+```
+
+```{r}
+tab_model(mod5_c)
+```
+
+```{r}
+parameters::model_parameters(mod5_c) #significant differences for words with vowel reduction
+```
+
+```{r}
+#post hoc test
+#em6 <- emmeans(mod4_c, ~ Condition*Stress)
+em6 <- readRDS("em6.rds")
+em6
+```
+
+```{r}
+#em7 <- emmeans(mod5_c, ~ Stress)
+em7 <- readRDS("em7.rds")
+em7
+```
+
+```{r}
+#pairwise contrast
+pairs(em7)
+```
+
+In sum, the vowels showed a significant difference for NTL conditions, meaning that the TL conditions were rated very close to the baseline. 
+On average, words in isolated condition were rated as more comprehensible, compared to words in a narrative condition which is expected due to the fact that words in narrative were produced with higher speed, as also highlighted by some participants. The aforementioned did not influence the accentedness ratings since the condition in which the words were produced had no significant effect on the accent ratings.
+For the words with less nasality, these were usually rated as less comprehensible compared to more nasal and words with oral vowels (please, see the exception for when oral vowels had significant results).This is similar to the accentedness ratings where the type of nasal had an effect on accent ratings.
+The NTL vowel quality was rated with significant difference, unlike the accentedness ratings, which showed significant difference for all types of vowel quality.
+For comprehensibility and vowel reduction, these showed significant difference in ratings for words with and without vowel reduction, the latter usually rated as less comprehensible.
+
+## Intelligibility
+
+This section provides the statistics used for intelligibility transcriptions. The descriptive statistics for comprehensibility can be found in this folder, document "Descriptives.docx".
+
+Since we have previously loaded all the required packages, we can jump directly into the statistical analysis.
+
+```{r}
+#read a file and assign it to a variable
+int <-  read_excel("/Users/REPLACE_WITH_YOUR_NAME/Desktop/Rdm/Task4_Intel.xlsx")
+```
+
+```{r}
+#number the items inside the spreadsheet
+int <- int %>%
+  mutate(item = as.integer(factor(`Spreadsheet: audio`)))
+```
+
+```{r}
+#number the raters
+int <- int %>%
+  mutate(rater = as.integer(factor(`Participant Public ID`)))
+```
+
+```{r}
+#you can check the summary of the data
+summary(int)
+class(int)
+```
+
+```{r}
+#convert character to factor variable 
+int$Con_type <- as.factor(int$Con_type)
+class(int$Con_type)
+
+int$Condition <- as.factor(int$Condition)
+class(int$Condition) 
+
+int$Target_word <- as.factor(int$Target_word)
+class(int$Target_word) 
+
+int$Vowel_quality <- as.factor(int$Vowel_quality)
+class(int$Vowel_quality) 
+
+int$Stress <- as.factor(int$Stress)
+class(int$Stress) 
+
+int$item <- as.factor(int$item)
+class(int$item) 
+
+int$rater <- as.factor(int$rater)
+class(int$rater) 
+```
+
+```{r}
+#reorder intercept for groups
+int$Condition<- relevel(int$Condition, "baseline")
+levels(int$Condition)
+
+int$Con_type<- relevel(int$Con_type, "narrative")
+levels(int$Con_type)
+
+int$Target_word<- relevel(int$Target_word, "more_nasal")
+levels(int$Target_word)
+
+int$Vowel_quality<- relevel(int$Vowel_quality, "baseline")
+levels(int$Vowel_quality)
+
+int$Stress<- relevel(int$Stress, "nasals")
+levels(int$Stress)
+```
+
+```{r}
+#calculate simple means
+means <- int %>%
+  group_by(Condition, Con_type, Target_word, Vowel_quality, Stress) %>%
+  summarise(Response = mean(Intel_coding, na.rm = TRUE)) %>%
+  arrange(desc(Response))  # Reorder with custom logic
+```
+
+```{r}
+#jitter plot for intelligibility
+int %>%
+  ggplot(aes(x=Condition, y=Intel_coding, fill=Condition)) +
+  geom_boxplot() +
+  scale_fill_viridis(discrete = TRUE, alpha=0.6) +
+  geom_jitter(color="black", size=0.4, alpha=0.9) +
+  theme_ipsum() +
+  theme(
+    legend.position="none",
+    plot.title = element_text(size=11)
+  ) +
+  ggtitle("Intelligibility transcriptions") +
+  xlab("")
+```
+
+Despite performing the Cronbach´s alpha calculations for accentedness and comprehensibility, this type of analysis will not be appropriate for the intelligibility transcriptions, since there was no continuous scale and the transcriptions were afterwards coded.
+
+Therefore, we can jump directly into the regression analyses. The same models were fit as for accentedness and comprehensibility.
+```{r}
+#To test the effect of condition based on nasality, vowel quality, type of production (isolated vs. narrative), and vowel reduction (stress)
+#library(lmerTest)
+#model1_i <- lmer(data = Task4_Intel, formula = Intel_coding ~ Condition*Con_type*Target_word*Vowel_quality*Stress + (1|item) + (1|rater))
+model1_i <- readRDS("model1_i.rds")
+```
+
+```{r}
+#model2_i <- lmer(data = Task4_Intel, formula = Intel_coding ~ Condition+Con_type+Target_word+Vowel_quality+Stress + (1|item) + (1|rater))
+model2_i <- readRDS("model2_i.rds")
+```
+
+```{r}
+anova(model1_i, model2_i) #testing model fit: model 1_i is more suitable
+```
+
+```{r}
+summary(model1_i)
+#model 1_i is a bit too heavy, so we need to drop some factors and start from a very simple regression analysis
+```
+
+```{r}
+#mod0_i: let´s see the simple mod0 which analyses the effect of condition (e.g., baseline, Int_TL_UKR) on the ratings, with speaker and item as random effects
+#mod0_i <- lmer(data = Task4_Intel, formula = Intel_coding ~ Condition*(1|item) + (1|rater))
+mod0_i <- readRDS("mod0_i.rds")
+```
+
+```{r}
+#mod0_1_i <- lmer(data = Task4_Intel, formula = Intel_coding ~ Condition+(1|item) + (1|rater))
+mod0_1_i <- readRDS("mod0_1_i.rds")
+```
+
+```{r}
+anova(mod0_i, mod0_1_i) #same
+```
+
+```{r}
+summary(mod0_i) #this model shows no significant difference
+```
+
+```{r}
+#library(sjPlot)
+tab_model(mod0_i)
+```
+
+```{r}
+#also install.package("merDeriv) to compute CI
+#library(merDeriv)
+#library(parameters)
+#library(xtable)
+parameters::model_parameters(mod0_i)
+```
+
+```{r}
+#now, we need to see how the ratings had significant differences in words produced isolation and inside a narrative
+#for this, we need to add a Con_type variable (two levels: isolated vs. narrative) to the above mentioned model
+#mod1_i <- lmer(data = Task4_Intel, formula = Intel_coding ~ Condition*Con_type + (1|item) + (1|rater))
+mod1_i <- readRDS("mod1_i.rds")
+```
+
+```{r}
+#mod1_0_i <- lmer(data = Task4_Intel, formula = Intel_coding ~ Condition+Con_type + (1|item) + (1|rater))
+mod1_0_i <- readRDS("mod1_0_i.rds")
+```
+
+```{r}
+anova(mod1_i, mod1_0_i) #model fit:mod1_i
+```
+
+```{r}
+summary(mod1_i)
+```
+
+```{r}
+tab_model(mod1_i)
+```
+
+```{r}
+parameters::model_parameters(mod1_i)
+```
+
+```{r}
+#the same could be performed with only Con_type as a fixed effect
+#m1_i <- lmer(data = Task4_Intel, formula = Intel_coding ~ Con_type + (1|item) + (1|rater))
+m1_i <- readRDS("m1_i.rds")
+```
+
+```{r}
+tab_model(m1_i) #no significant effect
+```
+
+```{r}
+#emmans post hoc
+#emmea0 <- emmeans(mod1_i, ~ Condition*Con_type)
+emmea0 <- readRDS("emmea0.rds")
+emmea0
+```
+
+```{r}
+pairs(emmea0)
+```
+
+```{r}
+#emmea0_1 <- emmeans(m1_i, ~ Con_type)
+emmea0_1 <- readRDS("emmea0_1.rds")
+emmea0_1
+```
+
+```{r}
+pairs(emmea0_1)
+```
+
+```{r}
+#after that, we need to check if there was an effect of nasality on the ratings, so we add Target_word or the type of nasal (word_stress means words with oral vowels only)
+#note: we first performed the model with isolated vs. narrative (Con_type), but decided to drop it since it showed no statistical difference in the previous model
+#mod2_i <- lmer(data = Task4_Intel, formula = Intel_coding ~ Condition*Target_word + (1|item) + (1|rater))
+mod2_i <- readRDS("mod2_i.rds")
+```
+
+```{r}
+#mod2_0_i <- lmer(data = Task4_Intel, formula = Intel_coding ~ Condition+Target_word + (1|item) + (1|rater))
+mod2_0_i <- readRDS("mod2_0_i.rds")
+```
+
+```{r}
+anova(mod2_i, mod2_0_i) #model fit:mod2_i
+```
+
+```{r}
+summary(mod2_i)
+```
+
+```{r}
+tab_model(mod2_i)
+```
+
+```{r}
+parameters::model_parameters(mod2_i)
+```
+
+```{r}
+#additional model parameter: we can only check the effect of more_nasal, less_nasal, and word_stress (oral vowels) on the rating of accentedness (a very simple model)
+#m2_i <- lmer(data = Task4_Intel, formula = Intel_coding ~ Target_word + (1|item) + (1|rater))
+m2_i <- readRDS("m2_i.rds")
+```
+
+```{r}
+tab_model(m2_i) #only significant difference for the words with oral vowels
+```
+
+```{r}
+#emmeans post hoc
+#emmea1 <- emmeans(mod2_i, ~ Condition*Target_word)
+emmea1 <- readRDS("emmea1.rds")
+emmea1
+```
+
+```{r}
+pairs(emmea1)
+```
+
+```{r}
+#emmea2 <- emmeans(m2_i, ~ Target_word)
+emmea2 <- readRDS("emmea2.rds")
+emmea2
+```
+
+```{r}
+pairs(emmea2)
+```
+
+```{r}
+#after checking the nasality, we need to replace to test the same hypothesis but now with vowel quality
+#hence, we replace Target_word (nasality) with Vowel_quality
+#same dropping of Con_type as in the previous
+#mod3_i <- lmer(data = Task4_Intel, formula = Intel_coding ~ Vowel_quality + (1|item) + (1|rater)) 
+mod3_i <- readRDS("mod3_i.rds")
+```
+
+```{r}
+#mod3_0_i <- lmer(data = Task4_Intel, formula = Intel_coding ~ Condition+Vowel_quality + (1|item) + (1|rater))
+mod3_0_i <- readRDS("mod3_0_i.rds")
+```
+
+```{r}
+#mod3_1_i <- lmer(data = Task4_Intel, formula = Intel_coding ~ Condition*Vowel_quality + (1|item) + (1|rater))
+mod3_1_i <- readRDS("mod3_1_i.rds")
+```
+
+```{r}
+anova(mod3_0_i, mod3_1_i)
+```
+
+```{r}
+tab_model(mod3_1_i)
+```
+
+```{r}
+parameters::model_parameters(mod3_1_i)
+```
+
+```{r}
+#model fit:same
+anova(mod3_i, mod3_0_i) 
+```
+
+```{r}
+#no significant results
+summary(mod3_i)
+```
+
+```{r}
+#for some reason, this model does not show the results for Vowel_quality when combined with Condition, so we need to simplify it by removing Condition
+tab_model(mod3_i) 
+```
+
+```{r}
+parameters::model_parameters(mod3_i)
+```
+
+```{r}
+#post hoc
+#emmea3 <- emmeans(mod3_i, ~ Vowel_quality)
+emmea3 <- readRDS("emmea3.rds")
+emmea3
+```
+
+```{r}
+pairs(emmea3)
+```
+
+```{r}
+#finally, we need to check if there is an overall difference in how oral and nasal vowels were rated, the former with and without reduction
+#for this, we add Stress variable and remove Vowel_quality. We can also drop the condition in which it was produced, since it is not relevant for this analysis
+#mod4_i <- lmer(data = Task4_Intel, formula = Intel_coding ~ Condition*Stress + (1|item) + (1|rater))
+mod4_i <- readRDS("mod4_i.rds")
+```
+
+```{r}
+#mod4_0_i <- lmer(data = Task4_Intel, formula = Intel_coding ~ Condition+Stress + (1|item) + (1|rater))
+mod4_0_i <- readRDS("mod4_0_i.rds")
+```
+
+```{r}
+anova(mod4_i, mod4_0_i) #model fit:mod4_i
+```
+
+```{r}
+summary(mod4_i)
+```
+
+```{r}
+tab_model(mod4_i) #only significant difference for the overall stress[reduction] p = 0.001
+```
+
+```{r}
+parameters::model_parameters(mod4_i)
+```
+
+```{r}
+report(mod4_i)
+```
+
+```{r}
+#we could also simplify the previous model by including only the Stress and excluding condition
+#mod5_i <- lmer(data = Task4_Intel, formula = Intel_coding ~ Stress + (1|item) + (1|rater))
+mod5_i <- readRDS("mod5_i.rds")
+```
+
+```{r}
+tab_model(mod5_i)
+```
+
+```{r}
+parameters::model_parameters(mod5_i) #same as for the full model: stress[reduction] p < 0.001
+```
+
+```{r}
+#post hoc
+#emmea4 <- emmeans(mod4_i, ~ Condition*Stress)
+emmea4 <- readRDS("emmea4.rds")
+emmea4
+```
+
+```{r}
+pairs(emmea4)
+```
+
+```{r}
+#emmea5 <- emmeans(mod5_i, ~ Stress)
+emmea5 <- readRDS("emmea5.rds")
+emmea5
+```
+
+```{r}
+pairs(emmea5)
+```
+
+In sum, there were no significant differences between how the raters orthographically transcribed the stimuli across groups.
+
+## Correlation analyses: Pearson´s r
+
+The following section will focus on the correlation between accentedness, comprehensibility, and intelligibility. 
+
+We will first look into the **correlation between accentedness and comprehensibility**.
+
+```{r}
+#load the file and assign to a variable
+cor_1 <-  read_excel("/Users/REPLACE_WITH_YOUR_NAME/Desktop/Rdm/Task4_final.xlsx")
+```
+
+```{r}
+#convert the character to factor
+cor_1$Con_type <- as.factor(cor_1$Con_type)
+class(cor_1$Con_type)
+
+cor_1$Condition <- as.factor(cor_1$Condition)
+class(cor_1$Condition) 
+
+cor_1$Target_word <- as.factor(cor_1$Target_word)
+class(cor_1$Target_word) 
+
+cor_1$Vowel_quality <- as.factor(cor_1$Vowel_quality)
+class(cor_1$Vowel_quality) 
+
+cor_1$Stress <- as.factor(cor_1$Stress)
+class(cor_1$Stress) 
+```
+
+```{r}
+#main analysis
+#library(stats) #if the system shows an error
+cor1 <- cor.test(cor_1$Slider_a, cor_1$Slider_c, method = "pearson")
+#where Slider_a refers to accentedness ratings and Slider_c to comprehensibility ratings
+```
+
+```{r}
+# Extract values
+estimate <- cor1$estimate
+p_value <- cor1$p.value
+statistic <- cor1$statistic
+conf_low <- cor1$conf.int[1]
+conf_high <- cor1$conf.int[2]
+```
+
+```{r}
+# Determine significance level
+signif_stars <- if (p_value < 0.001) {
+  "***"
+} else if (p_value < 0.01) {
+  "**"
+} else if (p_value < 0.05) {
+  "*"
+} else if (p_value < 0.1) {
+  "."
+} else {
+  "ns"
+}
+```
+
+```{r}
+# Format p-value as string
+p_value_str <- if (p_value < 0.001) {
+  "p < 0.001"
+} else {
+  paste0("p = ", signif(p_value, 2))
+}
+```
+
+```{r}
+# Format CI as string
+conf_interval <- paste0("[", round(conf_low, 3), ", ", round(conf_high, 3), "]")
+```
+
+```{r}
+# Final formatted result table
+result_table <- data.frame(
+  estimate = round(estimate, 3),
+  p_value = p_value_str,
+  conf_interval = conf_interval,
+  statistic = round(statistic, 3),
+  df = cor1$parameter,
+  method = cor1$method,
+  alternative = cor1$alternative,
+  significance = signif_stars,
+  row.names = "cor"
+)
+```
+
+```{r}
+# significant results between accentedness and comprehensibility
+print(result_table)
+```
+
+```{r}
+#for statistical reporting
+result <- cor.test(cor_1$Slider_a, cor_1$Slider_c, method = "pearson")
+```
+
+```{r}
+print(result)
+```
+
+```{r}
+#save as .csv file (optional)
+write.csv(result_table, "correlation_results.csv", row.names = FALSE)
+```
+
+```{r}
+#plot the correlation results
+ggplot(cor_1, aes(x = Slider_a, y = Slider_c)) +
+  geom_point(color = "steelblue") +
+  geom_smooth(method = "lm", color = "darkred", se = TRUE) +
+  labs(
+    title = "Correlation between accentedness and comprehensibility",
+    subtitle = paste0("Pearson r = ", round(cor1$estimate, 2),
+                      ", p = ", signif(cor1$p.value, 3)),
+    x = "Slider_a",
+    y = "Slider_c"
+  ) +
+  theme_minimal()
+```
+Now, let´s perform the Cronbach´s alpha for **accentedness and intelligibility**.
+
+In order to not contaminate the data, it is important to perform these correlation analyses **separately** by removing the previous analysis and loading the subsequent once one by one.
+```{r}
+#library(stats)
+cor2 <- cor.test(cor_1$Slider_a, cor_1$Intel_coding, method = "pearson")
+#where Slider_a refers to accentedness ratings and Intel_coding to intelligibility transcriptions already coded
+```
+
+```{r}
+# Extract values
+estimate <- cor2$estimate
+p_value <- cor2$p.value
+statistic <- cor2$statistic
+conf_low <- cor2$conf.int[1]
+conf_high <- cor2$conf.int[2]
+```
+
+```{r}
+# Determine significance level
+signif_stars <- if (p_value < 0.001) {
+  "***"
+} else if (p_value < 0.01) {
+  "**"
+} else if (p_value < 0.05) {
+  "*"
+} else if (p_value < 0.1) {
+  "."
+} else {
+  "ns"
+}
+```
+
+```{r}
+# Format p-value as string
+p_value_str <- if (p_value < 0.001) {
+  "p < 0.001"
+} else {
+  paste0("p = ", signif(p_value, 2))
+}
+```
+
+```{r}
+# Format CI as string
+conf_interval <- paste0("[", round(conf_low, 3), ", ", round(conf_high, 3), "]")
+```
+
+```{r}
+# Final formatted result table
+result_table_1 <- data.frame(
+  estimate = round(estimate, 3),
+  p_value = p_value_str,
+  conf_interval = conf_interval,
+  statistic = round(statistic, 3),
+  df = cor2$parameter,
+  method = cor2$method,
+  alternative = cor2$alternative,
+  significance = signif_stars,
+  row.names = "cor"
+)
+```
+
+```{r}
+# no significant results between accentedness and intelligibility
+print(result_table_1)
+```
+
+```{r}
+#for reporting
+result1 <- cor.test(cor_1$Slider_a, cor_1$Intel_coding, method = "pearson")
+```
+
+```{r}
+print(result1)
+```
+
+```{r}
+#save as .csv file (optional)
+write.csv(result_table_1, "correlation_results_1.csv", row.names = FALSE)
+```
+
+```{r}
+#plot the cor results
+ggplot(cor_1, aes(x = Slider_a, y = Intel_coding)) +
+  geom_point(color = "steelblue") +
+  geom_smooth(method = "lm", color = "darkred", se = TRUE) +
+  labs(
+    title = "Correlation between accentedness and intelligibility",
+    subtitle = paste0("Pearson r = ", round(cor2$estimate, 2),
+                      ", p = ", signif(cor2$p.value, 3)),
+    x = "Slider_a",
+    y = "Intel_coding"
+  ) +
+  theme_minimal()
+```
+
+Pearsons correlation between **comprehensibility and intelligibility**.
+```{r}
+#library(stats)
+cor3 <- cor.test(cor_1$Slider_c, cor_1$Intel_coding, method = "pearson")
+```
+
+```{r}
+# Extract values
+estimate <- cor3$estimate
+p_value <- cor3$p.value
+statistic <- cor3$statistic
+conf_low <- cor3$conf.int[1]
+conf_high <- cor3$conf.int[2]
+```
+
+```{r}
+# Determine significance level
+signif_stars <- if (p_value < 0.001) {
+  "***"
+} else if (p_value < 0.01) {
+  "**"
+} else if (p_value < 0.05) {
+  "*"
+} else if (p_value < 0.1) {
+  "."
+} else {
+  "ns"
+}
+```
+
+```{r}
+# Format p-value as string
+p_value_str <- if (p_value < 0.001) {
+  "p < 0.001"
+} else {
+  paste0("p = ", signif(p_value, 2))
+}
+```
+
+```{r}
+# Format CI as string
+conf_interval <- paste0("[", round(conf_low, 3), ", ", round(conf_high, 3), "]")
+```
+
+```{r}
+# Final formatted result table
+result_table_3 <- data.frame(
+  estimate = round(estimate, 3),
+  p_value = p_value_str,
+  conf_interval = conf_interval,
+  statistic = round(statistic, 3),
+  df = cor3$parameter,
+  method = cor3$method,
+  alternative = cor3$alternative,
+  significance = signif_stars,
+  row.names = "cor"
+)
+```
+
+```{r}
+# significant results between comprehensibility and intelligibility
+print(result_table_3)
+```
+```{r}
+#for reporting
+result2 <- cor.test(cor_1$Slider_c, cor_1$Intel_coding, method = "pearson")
+```
+
+```{r}
+print(result2)
+```
+
+```{r}
+#save as .csv file (optional)
+write.csv(result_table_3, "correlation_results_2.csv", row.names = FALSE)
+```
+
+```{r}
+#plot the cor results
+ggplot(cor_1, aes(x = Slider_c, y = Intel_coding)) +
+  geom_point(color = "steelblue") +
+  geom_smooth(method = "lm", color = "darkred", se = TRUE) +
+  labs(
+    title = "Correlation between comprehensibility and intelligibility",
+    subtitle = paste0("Pearson r = ", round(cor3$estimate, 2),
+                      ", p = ", signif(cor3$p.value, 3)),
+    x = "Slider_c",
+    y = "Intel_coding"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+#citations
+session_info()
+```
+
+```{r}
+#more citations
+pkgs <- c("ggplot2", "dplyr", "sjPlot", "stats")
+lapply(pkgs, citation)
+```
+

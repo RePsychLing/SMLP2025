@@ -1,0 +1,227 @@
+---
+title: "RePsychLing Thanh Lan Truong's 'smlp_script'"
+author: "Reinhold Kliegl"
+date: today
+date-format: iso
+format: 
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    code-fold: false
+    number-sections: true
+    fig-width: 8
+    fig-height: 6
+    fig-format: svg
+editor_options: 
+  chunk_output_type: console
+---
+
+# Setup
+
+```{r, include= FALSE}
+library(arrow)
+library(easystats)
+library(tidyverse)
+library(lme4)
+library(summarytools)
+
+cbPalette <- c( "#0072B2", "#D55E00", "#009E73", "#CC79A7",
+                "#F0E442", "#56B4E9", "#999999", "#E69F00")
+
+# helper function
+round_up <- function(x, digits = 0) {
+  mult <- 10^digits
+  ceiling(x * mult) / mult
+}
+```
+
+# Background
+
+In this study, monocultural German and bicultural Viet-German listeners were asked to identify the heritage of the speakers who were either monocultural German or Viet-German speakers. In addition, after each stimuli, participants were asked to rate how certain they were with their responses. 
+
+
+**Variables**
+
++ correctness (correct vs. incorrect)                             : dv
++ listener group (monocultural German vs. bicultural Viet-German) : between-subject, within-item
++ speaker group (monocultural German vs. bicultural Viet-German)  : within-subject, within-item
++ response certainty                                              : within-subject, within-item
++ GEQ German                                                      : between-subject, within-item 
++ GEQ Viet                                                        : between-subject, within-item 
++ MISS_hybr                                                       : between-subject, within-item 
++ MISS_alt                                                        : between-subject, within-item
+
+The last four were self ratings with regard to participants' cultural identity.
+
++ General Ethnicity Questionnaire (GEQ, Tsai et al., 2000). This questionnaire assesses bilinguals’ individual cultural identity.
++ Multicultural Identity Styles Scale (MISS, Ward et al., 2018). This questionnaire examines the relationship between bilinguals’ cultural identities.
+
+**Research questions**
+
++ Can listeners identify the cultural heritage of speakers based on speech alone? 
++ Is identification more accurate when the heritage of both listeners and speakers match? 
++ Is accuracy modulated by the listener's certainty?
+
+(I'm still thinking on how to incorporate the GEQ and MISS values)
+
+**Questions (RK)**
+
+1. What do ratings from 1-5 represent?  Assumption: 1 very uncertain (irrespective of correct/incorrect)
+2. Does information in `stimulus` allow reconstruction of response as hit, false alarms, miss, and correct rejection? This would allow an analysis based on signal-detection theory (SDT) and separate sensitivity and bias in responses. 
+3. How many subjects and items in experiment? How many observations in total?
+4. Is centering on median ratings ok?
+5. You refer to "monocultural German speakers", but in the experiment they are "monocultural German listeners", right?
+
+**Answers/comments (RK)**
+
+1. _Missing values for GEQ_VIET, MISS_hybr and MISS_alt._ You must not have missing values in the covariates. If zero is a plausible score on these scales for monocultural subjects, your solution to replace missing values with zero is ok. In the GLMM, there  are no `main` effects of these scales, only interaction terms with the factor listening group; possibly also higher-order interactions with scale x listening group.
+2.  Precision of scales is unlikely to be higher than percentage; two digits is overkill, in my opinion.
+3. _How to include certainty rating?_ See analysis below. A more elegant solution would be to use the ratings in SDT-based analysis for the separation of sensitivity and bias (see vignettes for  `ordinal::clmm` and `ordinal::clmm2`). This is not available for `MixedModels.jl`. 
+4. _Random effect strucure (RES) of `Item`._  `listener_group` is a within-item factor. Therefore, the associated variance component could be included as well. 
+5. _RES's of `Subj` and `Item`_. Interactions between VCs in the RE could be checked during model selection. Usually, reliable evidence for such VCs requires many subjects / items. This applies also to correlation parameters.
+6. _Congruency._ The hypothesis is that responses are more accurate when the heritage of both listeners and speakers match. Currently, this hypothesis is tested with the interaction of speaker group (`SG`) and listener group (`LG`). It is possible to recode factors such that the hypothesis is tested with a main effect of congruency. Results are usually easier to communicate with such a recoding.
+7. _Contrast coding for `SG` and `LG`_. Not sure yet, what is best. From the congruency perspective, I would use sequential-difference contrasts (like you), but aligned. (Q: Why did you choose a different order of levesl for the two factors?) From the scales perspective with many zeros for monocultural German listeners, treatment contrasts with them as `base` might be best. (It will not make a difference wrt statistical inference, but for ease of interpretation of fixed effects.)
+8. _Items._ A correct coding of `Item` is critical. In the GLMM items are assumed to be independent of each other (just like subjects). Thus, any systematic correlation between them must be moved to the fixed effects. For example, when the same items are spoken by speakers of different cultural background or sex, at least these main effects of speaker must not be in the items. (Here we assume that the interaction of speaker group and sex does not contribute to a correlation between items.)
+
+# Preprocessing
+
+```{r}
+dat <- 
+  tibble(read.csv("./data/complete_data_smlp25.csv", header = TRUE, sep = ",")) |> 
+  mutate(Subj = as_factor(paste0("S", str_pad(subject, width = 8, side = "left", pad = "0"))),
+         Stimulus=str_remove(stimuli, "\\.mp3"),
+         Item = as_factor(paste0("I", str_pad(item, width = 2 , side = "left", pad = "0"))),
+         SG = as_factor(speaker_group),
+         LG = as_factor(listener_group),
+         across(everything(), ~replace_na(., 0)),
+         geq_g = geq_ger_each,
+         geq_v = geq_viet_each,
+         miss_h = round_up(MISS_hybr_mean, 0),
+         miss_a = round_up(MISS_alt_mean, 0),
+         rc = response_certainty - 3
+         ) |> 
+   separate_wider_delim(Stimulus, "_", names=c("I", "G", "S_Sex", "I_fct")) |> 
+   mutate(Item = as_factor(paste0(Item, I_fct)),
+          S_Sex = as_factor(S_Sex)) |> 
+   select(Subj, Item, S_Sex, SG, LG, geq_g, geq_v, miss_h, miss_a, rc, correct)
+```
+
+# Checks
+
+```{r}
+#stview(dfSummary(dat))
+
+dat |>  group_by(Subj, LG) |>  tally() |> spread(LG, n)
+dat |>  group_by(Subj, SG) |>  tally() |> spread(SG, n)
+dat |>  group_by(SG, LG)   |>  tally() |> spread(LG, n)
+
+dat |>  group_by(Item, SG) |>  tally() |> spread(SG, n) |> print(n=48)
+dat |>  group_by(Item, LG) |>  tally() |> spread(LG, n) |> print(n=48)
+
+dat |>  group_by(Item, S_Sex) |>  tally() |> spread(S_Sex, n) |> print(n=48)
+```
+
+# Save as input for Julia
+This file is used as input in Julia MixedModels.jl script **yx_1.qmd**
+
+```{r}
+write_feather(data.frame(dat), "./data/tlt_heritage_identification.arrow")
+```
+
+
+# Contrasts
+
+```{r Categorize}
+contrasts(dat$SG) <- contr.treatment(2)
+contrasts(dat$LG) <- contr.treatment(2)
+contrasts(dat$S_Sex) <- contr.sum(2)
+```
+
+# GLMER
+
+```{r ModelOverall, results='markup'}
+m0 <-  glmer(correct ~ 1 + LG*(SG+geq_g) + rc + S_Sex + (1  | Subj) + (1  | Item),
+             data=dat,  family="binomial", control=glmerControl(calc.deriv=FALSE)) 
+VarCorr(m0)
+print(summary(m0), corr=FALSE)
+```
+
+Recode to indicator variables.
+
+```{r}
+mm <- model.matrix(~ 1 + SG + LG*(geq_v+miss_h+miss_a), data=dat)
+attr(mm,"dimnames")[[2]] 
+
+dat$sg <- mm[, 2]
+dat$lg <- mm[, 3]
+dat$lg_geq_v  <- mm[, 7]
+dat$lg_miss_h <- mm[, 8]
+dat$lg_miss_a <- mm[, 9] 
+```
+
+Use indicator variables in GLMM
+
+GLMM `m0` looks ok for the subset, afaics. For example, there is already a nice congruency interaction.  GLMM `m1` might work for the complete data. Three main effects in the model that are zero for monocultural listeners were removed.
+
+
+```{r}
+#| eval: true
+
+m1 <- glmer(correct ~ 1 + sg*lg + lg_geq_v + lg_miss_h +lg_miss_a + sg*lg*geq_g + rc + S_Sex +
+                     (1 | Subj) + (1 | Item),
+            data=dat,  family="binomial", control=glmerControl(calc.deriv=FALSE)) 
+print(summary(m1),cor=FALSE)
+```
+
+Are the scales contributing something?
+
+```{r}
+#| eval: true
+
+m2 <- glmer(correct ~ 1 + sg*lg*geq_g + rc + S_Sex +
+                     (1 | Subj) + (1 | Item),
+            data=dat,  family="binomial", control=glmerControl(calc.deriv=FALSE)) 
+print(summary(m2),cor=FALSE)
+
+anova(m2, m1)
+```
+
+The answer is that the `geq_g` scale is very important and that the three bicultural scales can be dropped w/o loss of goodness of fit. 
+
+# Figure for `geq_g` x `SG` x `LG`
+
+```{r}
+tab <- 
+  dat |> 
+  group_by(Subj, LG, SG, geq_g) |> 
+  reframe(correct=mean(correct)) |> 
+  group_by(LG, SG, geq_g) |> 
+  reframe(N=n(), se=sd(correct)/sqrt(N), correct=mean(correct))
+
+fig <- 
+  tab |> 
+  rename(Listener=LG) |> 
+  ggplot(aes(x=as_factor(geq_g), y=correct, group=SG, color=SG)) +
+  facet_grid(. ~ Listener, labeller=labeller(Listener = label_both)) +
+  geom_point() + geom_line() + 
+  geom_errorbar(aes(ymax=correct+2*se, ymin=correct-2*se), width=0.05) +
+  scale_x_discrete("Rating of listener's General Ethnicity for German", 
+                   labels=c("3", "4", "5"), breaks=3:5) +
+  scale_y_continuous("Probability correct") +
+  scale_colour_manual("Speaker of Item",  values=cbPalette[1:2]) +
+  coord_cartesian(ylim=c(0,1)) +
+  theme_bw(base_size=14) +
+  theme(legend.position = "inside",
+        legend.position.inside=c(.99,.99), legend.justification=c(.99,.99))
+fig
+```
+
+
+# Appendix
+
+```{r}
+sessionInfo()
+```
+
+

@@ -1,0 +1,192 @@
+---
+title: "RePsychLing Jolanda Xavier's 'Statistical Analyses of Accentedness'"
+author: "Reinhold Kliegl"
+date: today
+date-format: iso
+format: 
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    code-fold: false
+    number-sections: true
+    fig-width: 8
+    fig-height: 6
+    fig-format: svg
+editor_options: 
+  chunk_output_type: console
+---
+
+# Setup
+
+```{r}
+library(arrow)
+library(readxl)
+library(tidyverse)
+library(viridis)
+library(hrbrthemes)
+library(lme4)
+```
+
+# Preprocessing
+
+1. Read the file and assign it to a variable (will open an interactive datatable below) (IMPORTANT: please add the path to your file inside the read_excel function. A hypothetical example is provided below)
+2. Number the items inside the spreadsheet
+3. Mumber the raters
+4. Convert character to factor variable
+5. Set base for dummy coding - already 
+6. Reduce five factors to two factors, yielding 
+    + one set of main effects based on three "factors", 
+    + three sets of 2-factor interactions, 
+    + one set of 3-factor interactions
+
+```{r}
+accent  <-  
+  read_excel("./data/Task4_accent.xlsx") |> 
+  mutate(item = as.integer(factor(`Spreadsheet: audio`)),
+         Item = as_factor(paste0("I", str_pad(item, width = 3, side = "left", pad = "0"))),
+         rater = as.integer(factor(`Participant Public ID`)),
+         Rater = as_factor(paste0("R", str_pad(rater, width = 2, side = "left", pad = "0"))),
+         across(Condition:Vowel_quality, as_factor),
+         
+         # five factors
+         Condition =     relevel(Condition, "baseline"),
+         Con_type =      relevel(Con_type, "narrative"),
+         Target_word =   relevel(Target_word, "more_nasal"),
+         Vowel_quality = relevel(Vowel_quality, "baseline"),
+         Stress =        relevel(Stress, "nasals"),
+         
+         # reduced to three factors
+         C_V       = as_factor(interaction(Condition, Vowel_quality)),
+         T_S       = as_factor(interaction(Target_word, Stress)),
+         O         = Con_type, # to simplify nomenclature
+         
+         # two-factor interactions
+         C_V_T_S = as_factor(interaction(C_V, T_S)),
+         C_V_O   = as_factor(interaction(C_V, O)),
+         T_S_O   = as_factor(interaction(T_S, O)),
+
+         # three-factor interaction
+         C_V_T_S_O = as_factor(interaction(C_V_T_S, O)),
+         
+         # transformation of dependent variable
+         log_rsp = log(1+Response)
+  ) |> 
+  droplevels() |> 
+  select(Rater, Item, Condition, Con_type, Vowel_quality, Target_word, Stress,  
+         C_V, T_S, O, C_V_T_S, C_V_O, T_S_O, C_V_T_S_O, Response, log_rsp)
+  
+```
+
++ `O` is copy of `Con_type` to simplify nomenclature
++ Baselines for new factors are correct combinations of those of original five factors.
+
+# Checks
+
+The consequences of the following checks were included in the above preprocessing. 
+
+## Rank deficiency
+
+The five factors are not crossed, in particular `Condition`  and `Vowel_quality` and for `Target_word` and `Stress`. We recode them two factors `C_V`  and `T_S`, respectively. There is no loss of information.
+
+There is also redundancy for the interaction of `C_V`  and `T_S`. We recode them to factor `C_V_T_S`.
+
+```{r}
+#produce crosstab 
+accent |>  group_by(Condition, Con_type)        |>  tally() |> spread(Con_type, n)
+accent |>  group_by(Condition, Vowel_quality)   |>  tally() |> spread(Vowel_quality, n)
+accent |>  group_by(Condition, Target_word)     |>  tally() |> spread(Target_word, n)
+accent |>  group_by(Con_type, Stress)           |>  tally() |> spread(Stress, n)
+accent |>  group_by(Con_type, Vowel_quality)    |>  tally() |> spread(Vowel_quality, n)
+accent |>  group_by(Con_type, Target_word)      |>  tally() |> spread(Target_word, n)
+accent |>  group_by(Con_type, Stress)           |>  tally() |> spread(Stress, n)
+accent |>  group_by(Vowel_quality, Target_word) |>  tally() |> spread(Target_word, n)
+accent |>  group_by(Vowel_quality, Stress)      |>  tally() |> spread(Stress, n)
+accent |>  group_by(Target_word, Stress)        |>  tally() |> spread(Stress, n)
+
+# Reduce to three factors
+accent |> count(C_V)   # 9 levels from 9 + 5 = 14
+accent |> count(T_S)   # 4 levels from 3 + 3 =  6
+accent |> count(O) # 2 levels
+
+# Reduce to three two-factor  interactions with 23, 16, and 6 levels; probably too many.
+accent |> count(C_V_T_S) |> print(n=23)
+accent |> count(C_V_O)  # 16 levels
+accent |> count(T_S_O)   # 6 levels
+
+# Reduce to one three-factor interaction with 31 levels
+accent |> count(C_V_T_S_O) |> print(n=31)
+```
+
+## Distribution
+
+```{r}
+MASS::boxcox(Response+1 ~ 1 + C_V + Con_type + T_S, data=accent)
+```
+
+Strongly suggestive of need for log-transformation (i.e., proportional effects)
+This will probably also show up in analyses of model residuals. 
+
+# Descriptives
+
+Calculate simple means
+
+```{r}
+means <- accent %>%
+  group_by(C_V, Con_type, T_S) %>%
+  summarise_at(.vars = c("Response"), .funs = mean, na.rm = TRUE) %>%
+  arrange(C_V, Con_type, T_S)
+means
+```
+
+Plot the means (jitter plot)
+
+```{r}
+accent %>%
+  ggplot(aes(x=C_V, y=Response, fill=C_V)) +
+  geom_boxplot() +
+  scale_fill_viridis(discrete = TRUE, alpha=0.6) +
+  geom_jitter(color="black", size=0.4, alpha=0.9) +
+  theme_ipsum() +
+  theme(
+    legend.position="none",
+    plot.title = element_text(size=11)
+  ) +
+  ggtitle("Accentedness ratings") +
+  xlab("")
+```
+
+These distributions don't look too good. Log-transformation does not help too much either. In the end, model residuals are critical. (Added later: They actually look pretty good -- see **yx_1.html**.)
+
+# LMMs for `Response` and `log_rsp` (i.e., accentedness ratings)
+
+To test the effect of condition (group) based on nasality, vowel quality, type of production (isolated vs. narrative), and vowel reduction (stress) (in short, all the variables), we fitted a full model with (model1) and without interactions (model2):
+
+```{r}
+#| eval: false
+model1 <- lmer(data = accent, 
+               formula = Response ~ C_V + T_S + O +  (1|Item) + (1|Rater),
+               REML=FALSE, control=lmerControl(calc.derivs=FALSE))
+
+
+model1a <- lmer(data = accent, 
+               formula = log_rsp ~ C_V + T_S + O + (1|Item) + (1|Rater),
+               REML=FALSE, control=lmerControl(calc.derivs=FALSE))
+```
+
+I did not wait for the LMMs to complete. Check **yx_1.html** . Results are the same. 
+
+# Save the current dataframe
+
+This file is used as input in Julia MixedModels.jl script **yx_1.qmd**
+
+```{r}
+write_feather(data.frame(accent), "./data/accent.arrow")
+```
+
+# Appendix
+
+```{r}
+sessionInfo()
+```
+

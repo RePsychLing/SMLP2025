@@ -1,0 +1,188 @@
+---
+title: "RePsychLing Miriam Oschkinat's 'Perturbation Experiment'"
+author: "Reinhold Kliegl"
+date: today
+date-format: iso
+format: 
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    code-fold: false
+    number-sections: true
+    fig-width: 8
+    fig-height: 6
+    fig-format: svg
+editor_options: 
+  chunk_output_type: console
+engine: julia
+julia: 
+  exeflags: ["--project", "--threads=auto"]
+---
+
+
+# Setup
+
+## Packages
+
+```{julia}
+using Arrow
+using CairoMakie
+using DataFrames
+using MixedModels
+using MixedModelsExtras
+using MixedModelsMakie
+using RegressionFormulae
+using RCall
+using StatsModels
+```
+
+## Data
+
+```{julia}
+dat = DataFrame(Arrow.Table("data.arrow"));
+describe(dat)
+```
+
+# LMMs
+
+## Contrasts
+
+```{julia}
+contrasts = Dict(
+  :Phase => HelmertCoding(; levels=["B", "H", "A"]),
+  :Condition  => EffectsCoding(; levels=["Onset", "Coda"]),
+  :Sound  => EffectsCoding(; levels=["s", "u"]),
+  :Pert => EffectsCoding(; levels=["compressed", "stretched"])
+)
+```
+
+## Maximal model for experimental design
+  
+```{julia}
+m0 =
+  let d = dat,
+      f = @formula dur ~ 1 + Phase*Condition*Sound + (1 + Phase*Condition*Sound | Subj);
+     fit(MixedModel, f, d; contrasts)
+end
+issingular(m0) # true
+MixedModels.PCA(m0)
+VarCorr(m0)
+```
+
+This LMM is overparameterized (degenerate)
+
+## Parsimonious LMM
+
+```{julia}
+m1 =
+  let d = dat,
+      f = @formula dur ~ 1 + Phase*Condition*Sound + (1 + Phase+(Condition*Sound) | Subj);
+     fit(MixedModel, f, d; contrasts)
+end
+issingular(m1) # false
+MixedModels.PCA(m1) # ok
+```
+
+and with Condition x Sound nested in levels of Phase
+
+
+```{julia}
+m1N =
+  let d = dat,
+      f = @formula dur ~ 1 + Phase/(Condition*Sound) + (1 + Phase+(Condition*Sound) | Subj);
+     fit(MixedModel, f, d; contrasts)
+end
+issingular(m1N) # false
+MixedModels.PCA(m1N) # ok
+
+coeftable(m1N)
+```
+
+## Ideal LMM
+
+```{julia}
+m2 =
+  let d = dat,
+      f = @formula dur ~ 1 + Phase*Condition*Sound + (1 + Phase+Condition+Sound | Subj);
+     fit(MixedModel, f, d; contrasts)
+end
+VarCorr(m2)
+```
+
+
+## GoF stats
+
+### LRTs
+
+```{julia}
+lrtest(m2, m1, m0)
+```
+
+
+### AIC, BIC ...
+
+Include RK's selected LMM
+
+```{julia}
+
+table =[];
+push!(table, m2);
+push!(table, m1);
+push!(table, m0);
+
+model_data = 
+        gof_summary = let
+        mods = eval.(table)
+        DataFrame(;
+          dof=dof.(mods),
+          deviance=round.(deviance.(mods), digits=0),
+          AIC=round.(aic.(mods),digits=0),
+          BIC=round.(bic.(mods),digits=0)
+        )
+      end
+```
+
+
+## Residual diagnostics:  Q-Q plot: 
+
+```{julia}
+CairoMakie.activate!(; type="png")
+
+MixedModelsMakie.qqnorm(
+  residuals(m1);
+  qqline=:none,
+  axis=(;
+    xlabel="Standard normal quantiles",
+    ylabel="Quantiles of the residuals from model m1",
+  ),
+)
+```
+
+Let's check `sqrt(dur)``
+
+```{julia}
+m1_sqrt =
+  let d = dat,
+      f = @formula sqrt(dur) ~ 1 + Phase*Condition*Sound + (1 + Phase+(Condition*Sound) | Subj);
+     fit(MixedModel, f, d; contrasts)
+end;
+```
+
+
+```{julia}
+CairoMakie.activate!(; type="png")
+
+MixedModelsMakie.qqnorm(
+  residuals(m1_sqrt);
+  qqline=:none,
+  axis=(;
+    xlabel="Standard normal quantiles",
+    ylabel="Quantiles of the residuals from model m1",
+  ),
+)
+```
+# Version
+```{julia}
+versioninfo()
+```

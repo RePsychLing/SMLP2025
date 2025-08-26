@@ -1,0 +1,225 @@
+---
+title: "SMLP2025 - Constantin Späth"
+author: 'Constantin Späth'
+date: "Zuletzt bearbeitet: `r format(Sys.Date(), '%B %d, %Y')`"
+output: 
+    toc: true         
+format:
+  html:
+    self-contained: true
+    toc: true        
+    toc-depth: 4
+    toc-location: left
+    number-sections: true
+---
+
+# Description
+
+This IPD (individual participant data) meta-analysis aims to explore the relationship between affective valence (as measured by the Feeling Scale) and exercise intensity (operationalized as a percentage of HRmax). With reference to the Dual-Mode Theory (DMT; Ekkekakis, 2003), we aim to identify sources of inter-individual variability.
+
+According to the DMT, affective valence exhibits a quadratic decline with increasing exercise intensity due to the growing influence of interoceptive cues. In particular, within the "heavy domain," affective responses are suggested to show the greatest inter-individual variability, driven by the influence of cognitive factors. 
+
+This figure illustrates the DMT (Ekkekakis et al., 2020):
+
+```{r, error=FALSE, warning=FALSE, message=FALSE}
+#| echo: false
+#| fig-cap: "https://doi.org/10.1002/9781119568124.ch12"
+
+library(knitr)
+knitr::include_graphics("/Users/constantinspath/Desktop/Kliegl_LMM/Summer_school/Ekkekakis_2020_DMT.png")
+```
+
+# Setup
+
+## Load required packages
+
+```{r, error=FALSE, warning=FALSE, message=FALSE}
+# store packages in vector
+required_packages <- c("osfr",
+                       "dplyr",
+                       "here", 
+                       "ggplot2", 
+                       "tidyverse", 
+                       "naniar", 
+                       "lubridate", 
+                       "rstatix", 
+                       "psych",
+                       "janitor",
+                       "readxl",
+                       "writexl",
+                       "purrr",
+                       "lme4",
+                       "lmerTest",
+                       "explore",
+                       "easystats",
+                       "performance")
+
+# load packages (and install them first if necessary)
+for(Package in required_packages){
+  if(!require(Package,character.only = TRUE)) { 
+      install.packages(Package, dependencies=TRUE)
+  }
+  library(Package,character.only = TRUE)
+}
+```
+
+## Load data
+
+```{r}
+data <- read_excel("/Users/constantinspath/Desktop/Promo_Review/analysis/Meta_analysis/unpublished_Späth_reduced.xlsx")
+
+head(data)
+```
+
+## Codebook
+
+The most relevant variables for the following analyses (columns with biometric data not listed):
+
+-   **Study_id**: Study ID
+-   **Study_tr**: Trials/Conditions of Studies
+-   **Act**: Activity/Ergometer
+-   **Sub_id**: Subject ID
+-   **Hth_stat**: Health status
+-   **fs**: Feeling Scale response
+-   **hr**: Heart rate (at time of Feeling Scale response)
+-   **hrm_fox**: Age-predicted HRmax by Fox equation
+-   **hrm_tanaka**: Age-predicted HRmax by Tanaka equation
+-   **hrm_tested**: HRmax tested by GXT
+-   **hrp_tested**: %HRmax based on tested HRmax
+-   **hrp_fox_w**: winzorised %HRmax based on age-predicted HRmax by Fox
+-   **hrp_tanaka_w**: winzorised %HRmax based on age-predicted HRmax by Tanaka
+-   **hrp_fox_corrected_w**: hrp_fox_w, but values of hrp_tested if available
+-   **hrp_tanaka_corrected_w**: hrp_tanaka_w, but values of hrp_tested if available
+-   **fs_pre**: Feeling Scale response before exercise
+-   **rpe**: Rating of Perceived Exertion (Borg)
+-   **fas**: Felt Arousal Scale
+-   **pq_pref**: PRETIE-Q Preference Subscale
+-   **pq_tol**: PRETIE-Q Tolerance Subscale
+-   **vo2max**: VO2max
+-   **A_time**: Assessment time ("before" or "immediately after")
+-   **Mod_int**: Mode of exercise intensity ("imposed", "self-selected" or "unclear")
+
+# Summary Statistics
+
+The dataset is inherently unbalanced, as it is derived from an exploratory meta-analysis that integrates data from studies with varying designs. To be included, studies were required to measure Feeling Scale (FS) responses and monitor the corresponding heart rate (HR) during aerobic exercise sessions lasting at least 10 minutes. Additionally, participant age was necessary to estimate HRmax. All additional variables that were available were provided to us at the discretion of the original study authors.
+
+**Number of Data points**
+
+```{r}
+nrow(data)
+```
+
+**Number of Studies**
+
+```{r}
+length(unique(data$Study_id))
+```
+
+**Number of Participants**
+
+```{r}
+data %>%
+  summarise(n_subjects = n_distinct(Sub_id))
+```
+
+**Sex**
+
+```{r}
+data %>%
+  distinct(Sub_id, Sex) %>%        
+  count(Sex) %>%                       
+  mutate(percent = round(100 * n / sum(n), 1))
+```
+
+**Health status**
+
+```{r}
+data %>%
+  distinct(Sub_id, Hth_stat) %>%  # one row per subject
+  count(Hth_stat) %>%
+  mutate(percent = round(100 * n / sum(n), 1))
+```
+
+**Activities**
+
+```{r}
+data %>%
+  distinct(Sub_id, Act) %>%  # one row per subject
+  count(Act) %>%
+  mutate(percent = round(100 * n / sum(n), 1))
+```
+
+**Exercise Mode**
+
+```{r}
+data %>%
+  distinct(Sub_id, Mod_int) %>%  # one row per subject
+  count(Mod_int) %>%
+  mutate(percent = round(100 * n / sum(n), 1))
+```
+
+# Models
+
+```{r}
+m01 <- lmer(data = data, fs ~ 1 + (1| Sub_id)) 
+
+m02 <- lmer(data = data, fs ~ 1 + (1| Sub_id) + (1| Study_id)) 
+
+m03 <- lmer(data = data, fs ~ hrp_tanaka_corrected_w + 
+                  (1| Sub_id) + 
+                  (1| Study_id)) 
+
+m04 <- lmer(data = data, fs ~ hrp_tanaka_corrected_w + I(hrp_tanaka_corrected_w^2) + 
+                  (1| Sub_id) + 
+                  (1| Study_id)) 
+```
+
+```{r}
+anova(m01, m02, m03, m04)
+```
+
+```{r}
+model <- m04 # choose model
+summary(model)
+#model_dashboard(model)
+```
+
+# Figures
+
+```{r}
+#| fig-width: 5
+#| fig-height: 8
+
+# Extract fixed effect coefficients
+coefs <- fixef(model)
+
+# Create sequence of predictor values
+x_seq <- seq(min(data$hrp_tanaka_corrected_w, na.rm = TRUE),
+             max(data$hrp_tanaka_corrected_w, na.rm = TRUE),
+             length.out = 300)
+
+# Predict using fixed effects only
+y_pred <- coefs["(Intercept)"] +
+          coefs["hrp_tanaka_corrected_w"] * x_seq +
+          coefs["I(hrp_tanaka_corrected_w^2)"] * x_seq^2
+
+# Build data frame for plotting
+fixed_effect_df <- data.frame(
+  hrp_tanaka_corrected_w = x_seq,
+  fs_pred = y_pred
+)
+
+# Plot the curve only based on fixed effects
+
+ggplot(fixed_effect_df, aes(x = hrp_tanaka_corrected_w, y = fs_pred)) +
+  geom_line(color = "blue", size = 1.2) +
+  theme_minimal() +
+  labs(x = "%HRmax", y = "FS") +
+  scale_y_continuous(limits = c(-5, 5), breaks = seq(-5, 5, by = 1))
+```
+
+# Questions
+
+-   **Question 1**: What are the best procedures to check model assumptions?
+-   **Question 2**: What are the best practices for plotting partial effects from complex models?
+-   **Question 3**: How to compare models with different amount of data?

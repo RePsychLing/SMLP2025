@@ -1,0 +1,216 @@
+---
+title: "Perturbation Experiment"
+author: "Miriam Oschkinat"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    fig_caption: yes
+    highlight: textmate
+    theme: flatly
+    toc: yes
+    toc_float: yes
+    number_sections: yes
+    mode: selfcontained
+  pdf_document:
+    toc: yes
+documentclass: book
+link-citations: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Experiment Overview
+
+This is data from an auditory speech feedback perturbation experiment. In these kind of experiments, speakers say something, while they receive a manipulated version of their own speech via headphones. In our experiments, we specifically manipulate the durations of single sounds in words by first temporally stretching a sound, and then compressing another sound. For example, speakers may say the German word "Stadt", but they hear themselves saying "Staat". Thus, the "a" is stretched (and the "t" compressed). In our analyses, we evaluate how speech patterns change due to these manipulations. Typically, speakers counteract the perturbation with production patterns in the *opposite* direction of the manipulation, e.g., a stretched sound in perturbation would be produced shorter in response.
+
+## Setup  
+```{r}
+
+# start a new R-session, or
+rm(list=ls())
+
+# load / install packages
+# install.packages('pacman')
+
+pacman::p_load(
+  tidyverse,
+  lme4,
+  lmerTest,
+  pbkrtest,
+  emmeans,
+  MuMIn,
+  hrbrthemes
+  )
+
+# set path to where this script is saved
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+
+# load data
+data = read.csv("data.csv")
+data = data[,-1]
+
+```
+**Variable: condition**   
+The experiment consists of two conditions (**Onset** and **Coda** condition) in which participants utter a word in 110 trials (110 times - once per trial, see Figure below). Every participant completed both conditions.
+  
+**Variable: phase**  
+Each experimental condition starts with a phase of no perturbation (Baseline- **B**) for several trials, then there is a Ramp phase in which perturbation gradually increases, a Hold phase (**H**) with maximum perturbation, and an After effect phase (**A**) with no perturbation again.  
+  
+**Variable: sound**  
+In the Onset condition, the French word *soute* is manipulated, so that the sound **"s"** is stretched and the sound **"u"** compressed, while in the Coda condition, the word *tousse* is uttered in which the **"u"** is stretched and the **"s"** compressed.  
+
+
+Design
+```{r, echo = FALSE}
+p = data %>%
+  select(-subject_number, - dur_in_s, - trialnumber, - phase) %>%
+  distinct()
+
+p$phases = "B, H, A"
+
+p
+```
+
+The figure depicts the stretching of segments (green line) and compression of segments (magenta line) over the course of an experimental condition.
+
+(Note: this specific experiment presented here actually has only 95 and not 110 trials, the principle however is the same and should not matter).
+
+```{r, echo = FALSE}
+knitr::include_graphics('setup.jpeg')
+```
+
+## Question
+
+In our analyses, we examine how speakers change their productions (durations of the single sounds "u" and "s" ) over the course of the experiment (=per phase) and per condition, specifically in the Hold phase compared to the Baseline, and the After-effect phase compared to the Baseline and Hold phase.
+
+
+# Data Overview
+
+Number of participants (subset)
+
+```{r, echo = FALSE}
+length(unique(data$subject_number))
+```
+
+```{r, echo = FALSE}
+# Make variables of interest a factor
+data$condition = factor(data$condition, levels = c("Onset", "Coda"))
+data$phase = factor(data$phase, levels = c("B", "R", "H", "A"))
+
+# filter out Ramp phase for now 
+data = data %>%
+  filter(!phase == "R")
+
+data = droplevels(data)
+
+data$sound = as.factor(data$sound)
+data$pert_direction = as.factor(data$pert_direction)
+
+# filter out Ramp phase for now 
+data = data %>%
+  filter(!phase == "R")
+
+data = droplevels(data)
+
+
+
+```
+
+Check factor levels
+```{r, message = FALSE}
+
+levels(data$condition)
+levels(data$phase)  # B: Baseline, H: Hold, A: Aftereffect
+levels(data$sound)
+levels(data$pert_direction)
+
+
+```
+Histogram of duration 
+
+```{r, message = FALSE, echo = FALSE}
+data %>%
+  ggplot( aes(x=dur_in_s, fill=sound)) +
+    geom_histogram( color="#e9ecef", alpha=0.6, position = 'identity') +
+    scale_fill_manual(values=c("#69b3a2", "#404080")) +
+    theme_ipsum() +
+    labs(fill="")
+```
+
+Overview of the response data in boxplots per condition, sound, and phase with information about the perturbation direction.   
+
+```{r, message = FALSE, echo = FALSE}
+
+data %>%
+  group_by(subject_number, condition, sound, phase, pert_direction) %>%
+  summarize(mean_dur = mean(dur_in_s, na.rm = TRUE)) %>%
+  mutate(sound_pert = paste(sound, pert_direction, sep = " ")) %>%
+  #View()
+  ggplot(aes(x = phase, y = mean_dur, color = sound_pert, alpha = sound_pert, fill = sound_pert)) +
+  geom_boxplot() +
+  facet_wrap(~condition) +
+  scale_color_manual(values = c("#69b3a2","#69b3a2", "#404080", "#404080")) +
+  scale_fill_manual(values = c("#69b3a2", "#69b3a2",  "#404080","#404080")) +
+  scale_alpha_manual(values = c(0.8, 0.2, 0.8, 0.2))
+ 
+```
+
+# Modeling
+We are mainly interested in the difference between phases per sound per condition.  
+Therefore, we fit a linear mixed model first, and then get more information with emmeans pairwise comparison. 
+
+## lmer
+```{r}
+emm_options(pbkrtest.limit = 9000)
+
+# ideal model
+model1 = lmerTest::lmer(dur_in_s ~ condition * phase * sound +
+                (1 + phase + sound + condition | subject_number),
+              data = data)
+
+
+```
+
+Model plots
+```{r}
+plot(model1)
+qqnorm(resid(model1))
+
+
+model1.residuals <- resid(model1)
+
+model1.residuals <- as.data.frame(model1.residuals)
+
+ggplot(model1.residuals)+
+  aes(x=model1.residuals)+
+  geom_density()
+```
+
+```{r}
+summary(model1)
+
+# check how much variance the model explains
+MuMIn::r.squaredGLMM(model1)
+```
+
+We have a significant three-way interaction, so we can continue with posthoc emmeans pairwise comparison to examine the phase differences per sound and condition.  
+
+## emmeans
+```{r}
+
+emmeans.pairwise.model1 = model1 %>%
+  emmeans(pairwise ~ phase | sound  * condition, adjust = "tukey")
+
+emmeans.pairwise.model1
+
+```
+
+# Issues
+
++ This design might be a bit too much, technically our participants are also divided into two groups which we would like to compare - so the design is too large for the data I fear. When and how to best split models, e.g. calculate one model for Onset condition and one for Coda condition? How to deal with too large designs? And what if I can't have the perfect random effects structure?
+
++ I would like to learn more about model diagnostics and power statistics
+
++ I would like to learn more about optimizers. In the past I have used optimizers to make models converge - is there something special to keep in mind when checking model diagnostics when we have used optimizers?  

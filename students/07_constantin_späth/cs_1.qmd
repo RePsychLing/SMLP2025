@@ -1,0 +1,197 @@
+---
+title: "MixedModels.jl Starting Point for Constantin Späth's Example"
+author: "Reinhold Kliegl"
+date: today
+date-format: iso
+format: 
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    code-fold: false
+    number-sections: true
+    fig-width: 8
+    fig-height: 6
+    fig-format: svg
+editor_options: 
+  chunk_output_type: console
+engine: julia
+julia: 
+  exeflags: ["--project", "--threads=auto"]
+---
+
+# Setup
+
+## Packages
+
+```{julia}
+using Arrow
+using CairoMakie
+using DataFrames
+using MixedModels
+using MixedModelsExtras
+using MixedModelsMakie
+using RegressionFormulae
+using RCall
+using StatsModels
+using XLSX
+```
+
+## Data
+
+The data are expected in a *\data* subdirectory relative to the working directory.
+
+```{julia}
+dat = DataFrame(Arrow.Table("./data/unpublished_Späth_reduced.arrow"));
+describe(dat)
+```
+
+# LMMs
+
+## Contrasts
+
+```{julia}
+contrasts = Dict(
+  :Sex => EffectsCoding(; levels=["female", "male", "diverse"]),
+  :BMI => EffectsCoding(; levels=["underweight", "healthy range", "overweight", "obesity"])
+)
+```
+
+## Example
+
+When building models interactively, the following chunk works very well.
+
+```{julia}
+m0 =
+  let d = dat
+      f = @formula fs ~ 1 + hrp_tanaka_corrected_w + abs2(hrp_tanaka_corrected_w) + 
+                       (1 | Sub_id) + (1 +  hrp_tanaka_corrected_w + abs2(hrp_tanaka_corrected_w) | Study_id)
+     fit(MixedModel, f, d; contrasts)
+end
+issingular(m0)      # false
+MixedModels.PCA(m0) # not ok
+VarCorr(m0)
+```
+
+## Create formulae
+
+If there is a clear sequence of (nested) model fits, typically hierarchically decreasing or incresing in complexity. 
+
+```{julia}
+f01 = @formula fs ~ 1 + (1| Sub_id);
+f02 = @formula fs ~ 1 + (1| Sub_id) + (1| Study_id);
+f03 = @formula fs ~ 1 + hrp_tanaka_corrected_w +  (1| Sub_id) + (1| Study_id);
+f04 = @formula fs ~ 1 + hrp_tanaka_corrected_w + abs2(hrp_tanaka_corrected_w) + (1| Sub_id) + (1| Study_id);
+f05 = @formula fs ~ 1 + hrp_tanaka_corrected_w + abs2(hrp_tanaka_corrected_w) +
+                   (1| Sub_id) + zerocorr(1 + hrp_tanaka_corrected_w | Study_id);
+f06 = @formula fs ~ 1 + hrp_tanaka_corrected_w + abs2(hrp_tanaka_corrected_w) +
+                   (1| Sub_id) + (1 + hrp_tanaka_corrected_w | Study_id);
+formulas = Dict( "01" => f01, "02" => f02, "03" => f03, "04" => f04, "05" => f05, "06" => f06)
+```
+
+## Fit models and save model fits
+
+The fits are stored in a *\fits* subdirectory relative to the working directory.
+Storage of models is pnly necessary for fits that take a long time. 
+
+```{julia}
+model_ids = [ "01", "02", "03", "04", "05", "06"]
+models = Dict{String, Any}()
+id="01"
+for id in model_ids
+    # Get the formula from dictionary
+    formula = formulas[id]
+    
+    # Fit the model
+    model = fit(MixedModel, formula, dat; contrasts)
+    
+    # Save the model optimization summary
+    saveoptsum("./fits/m$(id)_optsum.json", model)
+    
+    # Assign to a variable named m01, m02, etc.
+    eval(:($(Symbol("m$id")) = $model))
+end
+```
+
+## Restore model fits
+
+Restoring (a subset of) model fits needs data, contrasts, and formulae as above.
+
+```{julia}
+model_ids = [ "01", "02", "04", "06"]
+
+for id in model_ids
+    # Create model using formula from dictionary
+    models["m$id"] = LinearMixedModel(formulas[id], dat; contrasts)
+    
+    # Restore optimization summary
+    restoreoptsum!(models["m$id"], "./fits/m$(id)_optsum.json")
+end
+```
+
+## GoF stats
+
+### LRTs
+
+```{julia}
+lrtest(m01, m02, m03, m04, m05, m06)
+```
+
+### AIC, BIC ...
+
+```{julia}
+table =[];
+push!(table, m01); push!(table, m02); push!(table, m03); 
+push!(table, m04); push!(table, m05); push!(table, m06); 
+
+model_data = 
+        gof_summary = let
+        mods = eval.(table)
+        DataFrame(;
+          dof=dof.(mods),
+          deviance=round.(deviance.(mods), digits=0),
+          AIC=round.(aic.(mods),digits=0),
+          BIC=round.(bic.(mods),digits=0)
+        )
+      end
+```
+
+Both AIC and BIC prefer LMM `m06`. 
+
+```{julia}
+issingular(m06)      # false
+MixedModels.PCA(m06) # not ok
+VarCorr(m06)
+```
+
+Checks out ok. 
+
+## Residual diagnostics:  Q-Q plot: 
+
+```{julia}
+CairoMakie.activate!(; type="png")
+
+MixedModelsMakie.qqnorm(
+  residuals(m06);
+  qqline=:none,
+  axis=(;
+    xlabel="Standard normal quantiles",
+    ylabel="Quantiles of the residuals from model m1",
+  ),
+)
+```
+
+Looks good. 
+
+## Parametric bootstrap 
+
+Next step is bootstrapping of confidence intervals for model parameters. 
+
+## Documenting model results
+
+Generate documents for post-processing in R or for publications. 
+
+# Version
+```{julia}
+versioninfo()
+```
