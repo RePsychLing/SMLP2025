@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Reinhold Kliegl">
-<meta name="dcterms.date" content="2025-05-13">
+<meta name="dcterms.date" content="2025-08-26">
 
 <title>Mixed Models Tutorial: Contrast Coding – SMLP2025: Advanced Frequentist Track</title>
 <style>
@@ -615,7 +615,7 @@ window.Quarto = {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">2025-05-13</p>
+      <p class="date">2025-08-26</p>
     </div>
   </div>
   
@@ -2172,8 +2172,8 @@ window.Quarto = {
 <p>In the model output, HeC1 will be reported first and HeC4 last.</p>
 <p>There is some justification for the HeC4 specification in a post-hoc manner because the fifth test (<code>BPT</code>) turned out to be different from the other four tests in that high performance is most likely not only related to physical fitness, but also to overweight/obesity, that is for a subset of children high scores on this test might be indicative of <em>physical unfitness</em>. <em>A priori</em> the SDC4 contrast 5-4 between <code>BPT</code> (5) and <code>SLJ</code> (4) was motivated because conceptually both are tests of the physical fitness component <em>Muscular Power</em>, <code>BPT</code> for upper limbs and <code>SLJ</code> for lower limbs, respectively.</p>
 <p>One could argue that there is justification for HeC3 because <code>Run</code> (1), <code>Star_r</code> (2), and <code>S20</code> (3) involve running but <code>SLJ</code> (4) does not. Sports scientists, however, recoil. For them it does not make much sense to average the different running tests, because they draw on completely different physiological resources; it is a variant of the old apples-and-oranges problem.</p>
-<p>The justification for HeC3 is that<code>Run</code> (1) and <code>Star_r</code> (2) draw more strongly on cardiosrespiratory <em>Endurance</em> than <code>S20</code> (3) due to the longer duration of the runs compared to sprinting for 20 m which is a pure measure of the physical-fitness component <em>Speed</em>. Again, sports scientists are not very happy with this proposal.</p>
-<p>Finally, HeC1 contrasts the fitness components Endurance, indicated best by Run (1), and Coordination, indicated by <code>Star_r</code> (2). Endurance (i.e., running for 6 minutes) is considered to be the best indicator of health-related status among the five tests because it is a rather pure measure of cardiorespiratory fitness. The <code>Star_r</code> test requires execution of a pre-instructed sequence of forward, sideways, and backward runs. This coordination of body movements implies a demand on working memory (i.e., remembering the order of these subruns) and executive control processes, but performats also depends on endurance. HeC1 yields a measure of Coordination “corrected” for the contribution of Endurance.</p>
+<p>The justification for HeC3 is that<code>Run</code> (1) and <code>Star_r</code> (2) draw more strongly on cardiorespiratory <em>Endurance</em> than <code>S20</code> (3) due to the longer duration of the runs compared to sprinting for 20 m which is a pure measure of the physical-fitness component <em>Speed</em>. Again, sports scientists are not very happy with this proposal.</p>
+<p>Finally, HeC1 contrasts the fitness components Endurance, indicated best by Run (1), and Coordination, indicated by <code>Star_r</code> (2). Endurance (i.e., running for 6 minutes) is considered to be the best indicator of health-related status among the five tests because it is a rather pure measure of cardiorespiratory fitness. The <code>Star_r</code> test requires execution of a pre-instructed sequence of forward, sideways, and backward runs. This coordination of body movements implies a demand on working memory (i.e., remembering the order of these subruns) and executive control processes, but performance also depends on endurance. HeC1 yields a measure of Coordination “corrected” for the contribution of Endurance.</p>
 <p>The statistical advantage of <em>HelmertCoding</em> is that the resulting contrasts are orthogonal (uncorrelated). This allows for optimal partitioning of variance and statistical power. It is also more efficient to estimate “orthogonal” than “non-orthogonal” random-effect structures.</p>
 <div id="26" class="cell" data-execution_count="1">
 <div class="sourceCode cell-code" id="cb15"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>contr2 <span class="op">=</span> <span class="fu">Dict</span>(</span>
@@ -5724,7 +5724,7 @@ Component loadings
 </section>
 <section id="pca-based-hypothesiscoding-contr4" class="level2" data-number="2.4">
 <h2 data-number="2.4" class="anchored" data-anchor-id="pca-based-hypothesiscoding-contr4"><span class="header-section-number">2.4</span> <em>PCA-based HypothesisCoding</em>: <code>contr4</code></h2>
-<p>The fourth set of contrasts uses <em>HypothesisCoding</em> to specify the set of contrasts implementing the loadings of the four principle components of the published LMM based on test scores, not test effects (contrasts) - coarse-grained, that is roughly according to their signs. This is actually a very interesting and plausible solution nobody had proposed <em>a priori</em>.</p>
+<p>The fourth set of contrasts uses <em>HypothesisCoding</em> to specify the set of contrasts implementing the loadings of the four principal components of the published LMM based on test scores, not test effects (contrasts) — coarse-grained, that is roughly according to their signs. This is actually a very interesting and plausible solution nobody had proposed <em>a priori</em>.</p>
 <ul>
 <li>PC1: <code>BPT</code> - <code>Run_r</code></li>
 <li>PC2: (<code>Star_r</code> + <code>S20_r</code> + <code>SLJ</code>) - (<code>BPT</code> + <code>Run_r</code>)</li>
@@ -11690,8 +11690,8 @@ Component loadings
 Fühner, T., Granacher, U., Golle, K., &amp; Kliegl, R. (2021). Age and sex effects in physical fitness components of 108,295 third graders including 515 primary schools and 9 cohorts. <em>Scientific Reports</em>, <em>11</em>(1). <a href="https://doi.org/10.1038/s41598-021-97000-4">https://doi.org/10.1038/s41598-021-97000-4</a>
 </div>
 </div>
-<p><em>This page was rendered from git revision <a href="https://github.com/RePsychLing/SMLP2025/tree/3c6f1f9
-">3c6f1f9
+<p><em>This page was rendered from git revision <a href="https://github.com/RePsychLing/SMLP2025/tree/1a894e8
+">1a894e8
 </a> using Quarto 1.7.29.</em></p>
 
 
