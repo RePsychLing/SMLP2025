@@ -8,7 +8,18 @@ fm_sleep = lmm(@formula(reaction ~ 1 + days + (1+days|subj)),
 
 shrinkageplot(fm_sleep)
 
+# notice the ! -- we're modifying an existing figure
+# (admittedly one that we created in the same line)
+# the advantage to this here is that we can specify the
+# figure's size manually
 shrinkageplot!(Figure(;size=(600,600)), fm_sleep; ellipse=true)
+
+# how do we save a figure?
+f = shrinkageplot!(Figure(;size=(600,600)), fm_sleep; ellipse=true)
+
+save("figure.png", f)
+save("figure.pdf", f)
+save("figure.svg", f)
 
 caterpillar(fm_sleep)
 
