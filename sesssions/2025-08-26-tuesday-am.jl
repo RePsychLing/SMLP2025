@@ -183,3 +183,47 @@ fit!(simulate!(RNG, simmod; β, σ, θ))
 
 samp = parametricbootstrap(RNG, 1000, simmod;
                            β, σ, θ, progress=true)
+
+using StatsBase
+
+coefpvalues = DataFrame()
+@showprogress for subj_n in [20, 40, 60, 80],  item_n in [40, 60, 80]
+    dat = simdat_crossed(RNG, subj_n, item_n;
+                         subj_btwn, item_btwn)
+    simmod = MixedModel(@formula(dv ~ 1 + age * frequency +
+                                     (1 + frequency | subj) +
+                                     (1 + age | item)),
+                        dat)
+
+    θ = createθ(simmod; subj=subj_re, item=item_re)showprogress
+    simboot = parametricbootstrap(RNG, 100, simmod;
+                                  β, σ, θ,
+                                  optsum_overrides=(;ftol_rel=1e-8),
+                                  progress=false)
+    df = DataFrame(simboot.coefpvalues)
+    df[!, :subj_n] .= subj_n
+    df[!, :item_n] .= item_n
+    append!(coefpvalues, df)
+end
+
+
+# combine is like summarize in tidy-lingo
+# transform is like mutate in tidy-lingo
+power = combine(groupby(coefpvalues, [:coefname, :subj_n, :item_n]),
+                :p => (p -> mean(p .< 0.05)) => :power)
+
+# let's add in SEMs to power estimates
+power = combine(groupby(coefpvalues,
+                        [:coefname, :subj_n, :item_n]),
+                :p => (p -> mean(p .< 0.05)) => :power,
+                :p => (p -> sem(p .< 0.05)) => :power_se)
+
+# now how about CIs too?
+select!(power, :coefname, :subj_n, :item_n, :power,
+        [:power, :power_se] =>
+            ByRow((p, se) -> [p - 1.96*se, p + 1.96*se]) =>
+            [:lower, :upper])
+
+data(power) *
+    mapping(:subj_n, :item_n, :power; layout=:coefname) *
+    visual(Heatmap) |> draw
