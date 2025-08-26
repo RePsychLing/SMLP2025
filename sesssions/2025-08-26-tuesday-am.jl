@@ -3,25 +3,25 @@ using SMLP2025: dataset
 
 using MixedModels
 
-lmm(@formula(reaction ~ 1 + days + (1 + days| subj)), 
+lmm(@formula(reaction ~ 1 + days + (1 + days| subj)),
     dataset(:sleepstudy);
     progress=false)
 
-progress = false    
+progress = false
 
-lmm(@formula(reaction ~ 1 + days + (1 + days| subj)), 
+lmm(@formula(reaction ~ 1 + days + (1 + days| subj)),
     dataset(:sleepstudy);
     progress=progress)
 
 # after the semicolon, you can just write the keyword/named argument
 # instead of kwarg=kwarg -- e.g., you can write "progress" instead of "progress=progress"
-lmm(@formula(reaction ~ 1 + days + (1 + days| subj)), 
+lmm(@formula(reaction ~ 1 + days + (1 + days| subj)),
     dataset(:sleepstudy);
     progress)
 
 # doesn't work -- positional arguments have a particular position :D
 lmm(dataset(:sleepstudy), @formula(reaction ~ 1 + days + (1 + days| subj)))
-    
+
 # julia distinguishes between characters (single quotes) and strings (double quotes)
 # you'll almost always want double quotes
 
@@ -63,10 +63,10 @@ rand(rng)
 
 # stream
 
-fm1 = lmm(@formula(reaction ~ 1 + days + (1 + days| subj)), 
+fm1 = lmm(@formula(reaction ~ 1 + days + (1 + days| subj)),
           dataset(:sleepstudy))
 
-bs1 = parametricbootstrap(StableRNG(42), 1000, fm1; progress=true)   
+bs1 = parametricbootstrap(StableRNG(42), 1000, fm1; progress=true)
 
 using DataFrames
 DataFrame(bs1.coefpvalues)
@@ -100,14 +100,29 @@ contrasts = Dict(:spkr => EffectsCoding(), # same as contr.sum in R
                  :prec => EffectsCoding(),
                  :load => EffectsCoding())
 
-fm2 = lmm(@formula(rt_trunc ~ 1 + spkr * prec * load + 
-                             (1 + spkr + prec + load |subj) + 
-                             (1 + spkr + prec + load|item)), 
+fm2 = lmm(@formula(rt_trunc ~ 1 + spkr * prec * load +
+                             (1 + spkr + prec + load |subj) +
+                             (1 + spkr + prec + load|item)),
           dataset(:kb07);
           contrasts=contrasts)
+# don't ever do a bootstrap with just 200 replicates
+# this is only to speed things along for the live demonstration
+bs2 = parametricbootstrap(StableRNG(666), 200, fm2;
+                          progress=true)
 
-bs2 = parametricbootstrap(StableRNG(666), 200, fm2; 
-                          progress=true)   
-
-ridgeplot(bs2; show_intercept=false)                       
+ridgeplot(bs2; show_intercept=false)
 ridge2d(bs2)
+
+# Wald confidence intervals --
+# based on normal approximation and standard errors
+confint(fm1)
+
+confint(bs1)
+# same as
+confint(bs1; method=:shortest) # highest density
+confint(bs1; method=:equaltail)
+
+# in lme4, you specify profile/bootstrap/wald
+# as part of the call to confint
+# in julia, the method is picked based on whether
+# you pass a model, a bootstrap or a profile object
