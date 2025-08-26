@@ -79,6 +79,35 @@ df = DataFrame(bs1.β)
 
 plt = data(df) * # specify the table
     mapping(:β; row=:coefname) * # like aes in ggplot
-    AlgebraOfGraphics.density() # like the geom_/stat_ in gggplot
+    AlgebraOfGraphics.density() # like the geom_/stat_ in ggplot
 
 draw(plt)
+
+# there is an easier way to do this very common plot
+using MixedModelsMakie
+
+
+ridgeplot(bs1)
+coefplot(fm1)
+coefplot(bs1)
+
+ridgeplot(bs1; show_intercept=false)
+
+ridge2d(bs1)
+
+# simple RE to make this a little bit faster for demo
+contrasts = Dict(:spkr => EffectsCoding(), # same as contr.sum in R
+                 :prec => EffectsCoding(),
+                 :load => EffectsCoding())
+
+fm2 = lmm(@formula(rt_trunc ~ 1 + spkr * prec * load + 
+                             (1 + spkr + prec + load |subj) + 
+                             (1 + spkr + prec + load|item)), 
+          dataset(:kb07);
+          contrasts=contrasts)
+
+bs2 = parametricbootstrap(StableRNG(666), 200, fm2; 
+                          progress=true)   
+
+ridgeplot(bs2; show_intercept=false)                          
+ridge2d(bs2)
