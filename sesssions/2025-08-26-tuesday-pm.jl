@@ -3,6 +3,11 @@ using MixedModels
 using MixedModelsMakie
 using SMLP2025: dataset
 
+fm_sleep = lmm(@formula(reaction ~ 1 + days + (1+days|subj)),
+               dataset("sleepstudy"))
+
+shrinkageplot(fm_sleep)
+
 kb07 = dataset("kb07")
 contrasts = Dict(:spkr => HelmertCoding(),
                  :prec => HelmertCoding(),
