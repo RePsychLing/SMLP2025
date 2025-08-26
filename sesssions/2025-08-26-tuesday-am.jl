@@ -109,5 +109,5 @@ fm2 = lmm(@formula(rt_trunc ~ 1 + spkr * prec * load +
 bs2 = parametricbootstrap(StableRNG(666), 200, fm2; 
                           progress=true)   
 
-ridgeplot(bs2; show_intercept=false)                          
+ridgeplot(bs2; show_intercept=false)                       
 ridge2d(bs2)
