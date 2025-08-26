@@ -31,3 +31,13 @@ lmm(dataset(:sleepstudy), @formula(reaction ~ 1 + days + (1 + days| subj)))
 
 # as a corollary, string repetition is done with exponentiation, i.e. ^
 "ab"^3
+
+# julia also supports string interpolation
+x = 3
+"hey look, x = $(x)"
+
+# one bit of magic...
+
+@__FILE__
+@__DIR__
+pwd()
