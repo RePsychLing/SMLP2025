@@ -20,7 +20,7 @@ lmm(@formula(reaction ~ 1 + days + (1 + days| subj)),
     progress)
 
 # doesn't work -- positional arguments have a particular position :D
-lmm(dataset(:sleepstudy), @formula(reaction ~ 1 + days + (1 + days| subj)))
+# lmm(dataset(:sleepstudy), @formula(reaction ~ 1 + days + (1 + days| subj)))
 
 # julia distinguishes between characters (single quotes) and strings (double quotes)
 # you'll almost always want double quotes
@@ -86,7 +86,6 @@ draw(plt)
 # there is an easier way to do this very common plot
 using MixedModelsMakie
 
-
 ridgeplot(bs1)
 coefplot(fm1)
 coefplot(bs1)
@@ -138,7 +137,6 @@ bs1_alt = parametricbootstrap(StableRNG(42), 1000, fm1; β=[300, -10], progress=
 
 # now let's simulate from scratch
 # this comes from `power_simulation.qmd`
-
 using MixedModelsSim
 
 subj_n = 20
@@ -154,6 +152,7 @@ simmod = fit(MixedModel,
                           (1 + frequency | subj) +
                           (1 + age | item)), dat)
 
+# but let's do contrasts
 contrasts = Dict(:age => EffectsCoding(),
                  :frequency => EffectsCoding())
 simmod = lmm(@formula(dv ~ 1 + age * frequency +
@@ -162,7 +161,7 @@ simmod = lmm(@formula(dv ~ 1 + age * frequency +
                           contrasts)
 
 # let's add in some fixed effects
-
+# note that these correspond to the coefficients, i.e. the contrasts
 β = [250.0, -25.0, 10, 0.0]
 simulate!(RNG, simmod; β)
 fit!(simmod)
@@ -185,9 +184,14 @@ samp = parametricbootstrap(RNG, 1000, simmod;
                            β, σ, θ, progress=true)
 
 using StatsBase
+using ProgressMeter
 
 coefpvalues = DataFrame()
-@showprogress for subj_n in [20, 40, 60, 80],  item_n in [40, 60, 80]
+# this will take a while!
+# x:y:z means "the range from x to z, stepping by y"
+# there is also x:z, which means "the range from x to z, stepping by 1"
+@showprogress for subj_n in 20:20:200,  item_n in 20:20:200
+    local df, dat, simmod, θ
     dat = simdat_crossed(RNG, subj_n, item_n;
                          subj_btwn, item_btwn)
     simmod = MixedModel(@formula(dv ~ 1 + age * frequency +
@@ -195,7 +199,7 @@ coefpvalues = DataFrame()
                                      (1 + age | item)),
                         dat)
 
-    θ = createθ(simmod; subj=subj_re, item=item_re)showprogress
+    θ = createθ(simmod; subj=subj_re, item=item_re)
     simboot = parametricbootstrap(RNG, 100, simmod;
                                   β, σ, θ,
                                   optsum_overrides=(;ftol_rel=1e-8),
@@ -224,6 +228,13 @@ select!(power, :coefname, :subj_n, :item_n, :power,
             ByRow((p, se) -> [p - 1.96*se, p + 1.96*se]) =>
             [:lower, :upper])
 
-data(power) *
+# finally a heatmap plot
+plt = data(power) *
     mapping(:subj_n, :item_n, :power; layout=:coefname) *
-    visual(Heatmap) |> draw
+    visual(Heatmap)
+
+draw(plt,
+    scales(Color = (;colormap = :viridis,
+                    colorrange = (0.25, 0.75),
+                    highclip = :white,
+                    lowclip = :black)))
