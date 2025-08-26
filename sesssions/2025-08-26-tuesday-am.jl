@@ -74,3 +74,11 @@ DataFrame(bs1.coefpvalues)
 # let's plot some stuff
 using CairoMakie
 using AlgebraOfGraphics
+
+df = DataFrame(bs1.β)
+
+plt = data(df) * # specify the table
+    mapping(:β; row=:coefname) * # like aes in ggplot
+    AlgebraOfGraphics.density() # like the geom_/stat_ in gggplot
+
+draw(plt)
