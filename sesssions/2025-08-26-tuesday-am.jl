@@ -131,4 +131,12 @@ confint(bs1; method=:equaltail)
 
 # trading off replicate quality for quantity -- make sure to look at the docs for more info!
 bs2 = parametricbootstrap(StableRNG(666), 100, fm2;
-                                 progress=true, optsum_overrides=(;ftol_rel=1e-8))
+                           progress=true, optsum_overrides=(;ftol_rel=1e-8))
+
+# simulate some new data
+bs1_alt = parametricbootstrap(StableRNG(42), 1000, fm1; β=[300, -10], progress=true)
+
+# now let's simulate from scratch
+# this comes from `power_simulation.qmd`
+
+using MixedModelsSim
