@@ -140,3 +140,11 @@ bs1_alt = parametricbootstrap(StableRNG(42), 1000, fm1; β=[300, -10], progress=
 # this comes from `power_simulation.qmd`
 
 using MixedModelsSim
+
+subj_n = 20
+item_n = 20
+subj_btwn = Dict(:age => ["old", "young"])
+item_btwn = Dict(:frequency => ["low", "high"])
+const RNG = StableRNG(42)
+dat = simdat_crossed(RNG, subj_n, item_n;
+                     subj_btwn, item_btwn)
