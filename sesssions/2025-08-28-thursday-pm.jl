@@ -53,3 +53,18 @@ caterpillar(slp;
 
 qqcaterpillar(slp)
 qqcaterpillar(fm1, cols=["(Intercept)"])
+
+# saving bootstrap results
+using StableRNGs
+
+pb_slp = parametricbootstrap(StableRNG(12321), 1000, slp)
+
+# how many fits were singular?
+count(issingular(pb_slp))
+savereplicates("bootstrap.arrow", pb_slp)
+# like restoreoptsum, restorereplicates requires a model
+# but this model does not have to be fitted
+
+slp2 = LinearMixedModel(@formula(reaction ~ 1 + days + (1+days|subj)), dataset(:sleepstudy))
+
+savereplicates("bootstrap.arrow", slp2)
