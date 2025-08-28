@@ -25,3 +25,20 @@ using StandardizedPredictors
 lmm(@formula(reaction ~ 1 + days + (1+days|subj)),
     dataset(:sleepstudy);
     contrasts=Dict(:days => Center()))
+
+# we can use a precomputed value
+lmm(@formula(reaction ~ 1 + days + (1+days|subj)),
+    dataset(:sleepstudy);
+    contrasts=Dict(:days => Center(2)))
+
+# we can also use a function
+using StatsBase
+lmm(@formula(reaction ~ 1 + days + (1+days|subj)),
+    dataset(:sleepstudy);
+    contrasts=Dict(:days => Center(minimum)))
+
+# there's also zscore
+# (doesn't make sense for days, but whatever...)
+lmm(@formula(reaction ~ 1 + days + (1+days|subj)),
+    dataset(:sleepstudy);
+    contrasts=Dict(:days => ZScore()))
