@@ -50,3 +50,6 @@ caterpillar(slp;
             # dotcolor=(:cyan, 1.0),
             # barcolor=:yellow,
             orderby=2)
+
+qqcaterpillar(slp)
+qqcaterpillar(fm1, cols=["(Intercept)"])
