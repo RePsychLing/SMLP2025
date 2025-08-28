@@ -1,6 +1,9 @@
 ---
 title: "Generalized linear mixed models"
 engine: julia
+author:
+  - Douglas Bates
+  - Phillip Alday
 julia:
   exeflags: ["--project", "--threads=auto"]
 ---
@@ -227,7 +230,7 @@ draw(
     color=:livch,
   ) *
   smooth();
-  figure=(; resolution=(800, 450)),
+  figure=(; size=(800, 450)),
 )
 ```
 
