@@ -67,4 +67,4 @@ savereplicates("bootstrap.arrow", pb_slp)
 
 slp2 = LinearMixedModel(@formula(reaction ~ 1 + days + (1+days|subj)), dataset(:sleepstudy))
 
-savereplicates("bootstrap.arrow", slp2)
+restorereplicates("bootstrap.arrow", slp2)
