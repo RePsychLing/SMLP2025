@@ -17,3 +17,11 @@ reloaded = LinearMixedModel(@formula(rt_trunc ~ spkr * prec * load +
           dataset(:kb07))
 
 restoreoptsum!(reloaded, "big_mod.json")
+
+slp = lmm(@formula(reaction ~ 1 + days + (1+days|subj)), dataset(:sleepstudy))
+
+using StandardizedPredictors
+
+lmm(@formula(reaction ~ 1 + days + (1+days|subj)),
+    dataset(:sleepstudy);
+    contrasts=Dict(:days => Center()))
