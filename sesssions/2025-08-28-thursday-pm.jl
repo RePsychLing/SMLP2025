@@ -42,3 +42,11 @@ lmm(@formula(reaction ~ 1 + days + (1+days|subj)),
 lmm(@formula(reaction ~ 1 + days + (1+days|subj)),
     dataset(:sleepstudy);
     contrasts=Dict(:days => ZScore()))
+
+using CairoMakie, MixedModelsMakie
+caterpillar(slp)
+caterpillar(slp;
+            vline_at_zero=true,
+            # dotcolor=(:cyan, 1.0),
+            # barcolor=:yellow,
+            orderby=2)
